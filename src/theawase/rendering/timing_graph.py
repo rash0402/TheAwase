@@ -52,24 +52,32 @@ class TimingGraphRenderer:
             surface: 描画先サーフェス
             awase_history: game_state['awase_history']
         """
-        if len(awase_history) == 0:
-            return
-
-        # 最新N件を取得
-        recent = awase_history[-self.max_samples:]
-
-        # 半透明背景サーフェス
+        # 半透明背景サーフェス（履歴がなくても枠を表示）
         graph_surface = pygame.Surface(self.size, pygame.SRCALPHA)
         graph_surface.fill(self.bg_color)
+
+        # 枠線を描画（目立つように）
+        pygame.draw.rect(graph_surface, (100, 150, 200), (0, 0, self.size[0], self.size[1]), 2)
 
         # グリッド描画
         self._draw_grid(graph_surface)
 
-        # データポイント描画
-        self._draw_data_points(graph_surface, recent)
-
         # 軸ラベル描画
         self._draw_labels(graph_surface)
+
+        # データポイント描画（履歴がある場合のみ）
+        if len(awase_history) > 0:
+            recent = awase_history[-self.max_samples:]
+            self._draw_data_points(graph_surface, recent)
+        else:
+            # 履歴がない場合はメッセージを表示
+            try:
+                font = pygame.font.Font(None, 24)
+            except:
+                font = pygame.font.SysFont('Hiragino Sans', 24)
+            message = font.render("Awaiting Awase...", True, (150, 150, 150))
+            text_rect = message.get_rect(center=(self.size[0] // 2, self.size[1] // 2))
+            graph_surface.blit(message, text_rect)
 
         # メインサーフェスに転送
         surface.blit(graph_surface, self.pos)

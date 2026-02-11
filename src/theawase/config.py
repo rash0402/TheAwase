@@ -30,7 +30,7 @@ FLOAT_ROTATIONAL_DRAG = 0.0001    # N·m·s² 回転減衰係数（形状抵抗�
 FLOAT_ROTATIONAL_VISCOSITY = 0.0005  # N·m·s 回転粘性減衰係数（5倍に増加、振動を早期に停止）
 
 # ハリスパラメータ
-TIPPET_LENGTH = 0.30      # m (30cm: ウキ→エサ間距離)
+TIPPET_LENGTH = 0.45      # m (45cm: ウキ→エサ間距離、魚の深度に合わせて調整)
 TIPPET_STIFFNESS = 50.0   # N/m
 
 # カラー定義
