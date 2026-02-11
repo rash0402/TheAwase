@@ -55,3 +55,6 @@ htmlcov/
 # macOS
 .AppleDouble
 .LSOverride
+*.md~
+*#
+GEMINI.md
