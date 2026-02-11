@@ -92,7 +92,7 @@ def _get_jp_font(size: int) -> pygame.font.Font:
     return pygame.font.Font(None, size)
 
 
-def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel) -> tuple[int, str] | None:
+def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel, game_state: dict, bait: BaitModel) -> tuple[int, str] | None:
     """
     アワセ判定 v3.0（実釣感覚版）
     
@@ -104,6 +104,7 @@ def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel) 
     Priority A: タイミングウィンドウの細分化（実釣感覚）
     Priority B: 重複判定防止（クールダウン）
     Priority C: 複数魚の明確な処理
+    Phase 3: タイミング履歴記録
     
     Returns:
         (スコア, メッセージ) or None
@@ -119,46 +120,86 @@ def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel) 
     # 3. Priority C: ATTACKしている魚を列挙し、最初にATTACKした魚を特定
     attacking_fishes = [f for f in fishes if f.state == FishState.ATTACK]
     
+    result = None
+    timing_ms = 0.0
+    bite_type_str = "NONE"
+    
     if attacking_fishes:
         # state_timerが最も進んでいる魚（＝最初にATTACKした魚）を判定対象に
         target_fish = max(attacking_fishes, key=lambda f: f.state_timer)
         t_ms = target_fish.state_timer * 1000  # ミリ秒変換
         bite = target_fish.bite_type
+        timing_ms = t_ms
+        bite_type_str = bite.name
         
         # Priority A: BiteType別のタイミングウィンドウ判定（実釣感覚版）
         if bite == BiteType.KESHIKOMI:
             # 消し込み: 最も難しい（瞬間勝負、100ms幅）
             if 150 <= t_ms <= 250:
-                return (3000, "EXCELLENT! 難しい消し込みを捉えた")
+                result = (3000, "EXCELLENT! 難しい消し込みを捉えた")
             elif 100 <= t_ms < 150 or 250 < t_ms <= 300:
-                return (1500, "GOOD! 消し込み（ギリギリ）")
+                result = (1500, "GOOD! 消し込み（ギリギリ）")
             else:
-                return (-200, "MISS: 消し込みに遅れた")
+                result = (-200, "MISS: 消し込みに遅れた")
         
         elif bite == BiteType.KUIAGE:
             # 食い上げ: チャンスアタリ（荷重が抜けるため広い、250ms幅）
             if 150 <= t_ms <= 400:
-                return (2500, "PERFECT! 食い上げを捉えた")
+                result = (2500, "PERFECT! 食い上げを捉えた")
             elif 100 <= t_ms < 150 or 400 < t_ms <= 500:
-                return (1200, "GOOD! 食い上げ（やや早い/遅い）")
+                result = (1200, "GOOD! 食い上げ（やや早い/遅い）")
             else:
-                return (-50, "BAD: タイミング外")
+                result = (-50, "BAD: タイミング外")
         
         else:  # BiteType.NORMAL
             # 通常アタリ: 標準ウィンドウ（150ms幅）
             if 150 <= t_ms <= 300:
-                return (2500, "PERFECT! 理想のアワセ")
+                result = (2500, "PERFECT! 理想のアワセ")
             elif 100 <= t_ms < 150 or 300 < t_ms <= 350:
-                return (1000, "GOOD! やや早い/遅い")
+                result = (1000, "GOOD! やや早い/遅い")
             else:
-                return (-100, "BAD: タイミング外")
+                result = (-100, "BAD: タイミング外")
     
     # 4. APPROACH中: 早アワセ
-    if any(fish.state == FishState.APPROACH for fish in fishes):
-        return (-100, "EARLY: まだ吸い込んでいない")
+    if not result and any(fish.state == FishState.APPROACH for fish in fishes):
+        result = (-100, "EARLY: まだ吸い込んでいない")
+        bite_type_str = "EARLY"
     
     # 5. その他: 空振り
-    return (-50, "MISS: 空振り")
+    if not result:
+        result = (-50, "MISS: 空振り")
+        bite_type_str = "MISS"
+    
+    # Phase 3: タイミング履歴に記録
+    if result:
+        score, message = result
+        
+        # 魚の加速度とハリス張力を取得
+        fish_accel_y = 0.0
+        tippet_tension = 0.0
+        if attacking_fishes:
+            target_fish = max(attacking_fishes, key=lambda f: f.state_timer)
+            fish_accel = target_fish.get_acceleration_from_suction(bait.position)
+            fish_accel_y = fish_accel[1]
+            # ハリス張力は bait に保存されていない場合があるのでデフォルト値
+            tippet_tension = getattr(bait, '_last_tippet_tension', 0.0)
+        
+        record = {
+            'timestamp': 60.0 - game_state['time_left'],  # 経過時間
+            'bite_type': bite_type_str,
+            'timing_ms': timing_ms,
+            'score': score,
+            'fish_accel_y': fish_accel_y,
+            'tippet_tension': tippet_tension,
+        }
+        
+        game_state['awase_history'].append(record)
+        
+        # 最大50件に制限
+        if len(game_state['awase_history']) > 50:
+            game_state['awase_history'].pop(0)
+    
+    return result
 
 
 def main():
@@ -213,6 +254,7 @@ def main():
         'result_timer': 0,
         'awase_cooldown': 0.0,  # Priority B: 重複判定防止
         'fish_caught': 0,  # 釣れた魚の数
+        'awase_history': [],  # Phase 3: タイミング履歴（最大50試行分）
     }
     
     # 画面領域
@@ -402,7 +444,7 @@ def main():
                 game_state['awase_cooldown'] -= dt
             else:
                 # クールダウンが終わっている場合のみ判定
-                result = check_awase(trackpad, fishes, line)
+                result = check_awase(trackpad, fishes, line, game_state, bait)
                 if result:
                     score, msg = result
                     game_state['last_result'] = msg

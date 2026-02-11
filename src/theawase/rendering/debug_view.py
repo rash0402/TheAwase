@@ -8,6 +8,7 @@ from theawase.physics.line import LineModel
 from theawase.physics.float_model import FloatModel
 from theawase.physics.bait import BaitModel
 from theawase.entities.fish import FishAI, FishState
+from theawase.rendering.timing_graph import TimingGraphRenderer
 
 
 # 魚の状態名（日本語）
@@ -33,6 +34,13 @@ class DebugViewRenderer:
         """
         self.font_loader = font_loader
         self.scale = config.DEBUG_VIEW_SCALE
+
+        # Phase 3: タイミンググラフレンダラー（右下配置）
+        graph_width = 300
+        graph_height = 150
+        graph_x = config.SCREEN_WIDTH - graph_width - 10
+        graph_y = config.SCREEN_HEIGHT - graph_height - 10
+        self.timing_graph = TimingGraphRenderer((graph_x, graph_y), (graph_width, graph_height))
 
     def render(self, screen: pygame.Surface, view_rect: pygame.Rect,
                rod: RodModel, line: LineModel, float_model: FloatModel,
@@ -129,6 +137,9 @@ class DebugViewRenderer:
 
         # クリップ解除 for UI overlay
         screen.set_clip(None)
+
+        # Phase 3: タイミンググラフ描画（右下、クリップ解除後）
+        self.timing_graph.render(screen, game_state.get('awase_history', []))
 
         # 情報パネル（右下）
         self._draw_info_panel(screen, view_rect, font, fishes, bait, game_state)
