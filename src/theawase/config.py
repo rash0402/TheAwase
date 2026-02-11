@@ -45,7 +45,7 @@ MACRO_WATER_OFFSET_PX = 80     # マクロビュー水面線オフセット（�
 TOP_SEGMENT_HEIGHT_PX = 10     # px (トップの節模様セグメント高さ、細かい節でリアルさ向上）
 
 # ゲームロジック定数
-FISH_COUNT = 2                 # 魚の数（達人推奨: 実釣に近い匹数）
+FISH_COUNT = 4                 # 魚の数
 SUCK_TO_FLOAT_FACTOR = 0.015   # 魚の吸い込み力のウキへの伝達率（1.5%、感度を適度に抑える）
 SAWARI_DISTANCE_THRESHOLD = 0.15  # m (魚がこの距離以内でサワリを発生)
 SAWARI_TRANSMISSION_FACTOR = 0.05  # サワリ力のウキへの伝達率（5%、微細な振動として伝達）
