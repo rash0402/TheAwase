@@ -119,12 +119,16 @@ class FishAI:
             diffusion = sigma * np.sqrt(dt) * np.random.randn(2)
             self.ou_state = self.ou_state + drift + diffusion
 
+            # NaNセーフティ: 数値発散防止
+            if not np.all(np.isfinite(self.ou_state)):
+                self.ou_state = np.array([0.0, 0.0])
+
             # 距離に応じた強度調整（近いほど強い）
             strength_factor = (config.SAWARI_DISTANCE_THRESHOLD - distance) * 2.0
             self.disturbance_force = self.ou_state * strength_factor
         else:
             # 範囲外では状態を徐々に減衰（魚が離れても揺れは残る）
-            self.ou_state *= 0.9
+            self.ou_state *= 0.98  # 緩やかな減衰で「余韻」を長く保持
             self.disturbance_force = np.array([0.0, 0.0])
 
         # 十分近づいたら攻撃へ遷移
@@ -210,17 +214,20 @@ class FishAI:
         """
         if t < 0.05:
             # 準備段階: 口を開く（線形）
-            return 0.5 * (t / 0.05)
+            strength = 0.5 * (t / 0.05)
         elif t < 0.15:
             # 爆発段階: 爆発的吸引（ガウス型、σ=25ms）
             peak_time = 0.10  # 100ms = 50ms準備 + 50ms爆発
             width = 0.025     # 25ms（標準偏差）
-            return 5.0 * np.exp(-((t - peak_time) ** 2) / (2 * width ** 2))
+            strength = 5.0 * np.exp(-((t - peak_time) ** 2) / (2 * width ** 2))
         else:
             # 減衰段階: 離脱開始（指数減衰、τ=100ms）
             decay_start = 0.15
             decay_rate = 0.10  # 時定数100ms
-            return 5.0 * np.exp(-(t - decay_start) / decay_rate)
+            strength = 5.0 * np.exp(-(t - decay_start) / decay_rate)
+        
+        # 上限キャップ: 数値発散防止（0.0-5.0の範囲に制限）
+        return np.clip(strength, 0.0, 5.0)
     
     def get_suck_force(self, target_position: np.ndarray) -> np.ndarray:
         """吸い込み力を計算（双極子型力場）"""

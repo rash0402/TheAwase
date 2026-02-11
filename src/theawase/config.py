@@ -56,7 +56,7 @@ PARTICLE_DENSITY_INCREMENT = 0.1  # パーティクル密度の増分値
 
 # Phase 2: FishAI高度化パラメータ
 # Ornstein-Uhlenbeck過程（サワリの時間相関）
-SAWARI_OU_THETA = 6.67     # 1/τ, τ=150ms（時定数: 魚体周辺のストークス流）
+SAWARI_OU_THETA = 3.33     # 1/τ, τ=300ms（時定数延長: よりフワフワした揺れ）
 SAWARI_OU_SIGMA = 0.01     # 強度（標準偏差、ウキへの影響の大きさ）
 
 # 魚の吸い込み力場（双極子型）
