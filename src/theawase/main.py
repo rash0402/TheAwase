@@ -332,7 +332,14 @@ def main():
         rod.update_velocity(dt, -tension_new)
 
         # Pass 2.2: エサの速度更新とハリス張力計算
-        tippet_reaction_new = bait.update_velocity(dt, float_pos_new)
+        # Phase 3: 魚の加速度を取得してハリス張力に反映
+        fish_accel = np.array([0.0, 0.0])
+        for fish in fishes:
+            if fish.state == FishState.ATTACK:
+                fish_accel = fish.get_acceleration_from_suction(bait.position)
+                break  # 最初のATTACK魚のみ考慮
+
+        tippet_reaction_new = bait.update_velocity(dt, float_pos_new, fish_accel)
 
         # Pass 2.3: ウキの速度更新（新外力を使用）
         # 魚の外力は既に計算済み（魚自体はオイラー法なので再計算不要）

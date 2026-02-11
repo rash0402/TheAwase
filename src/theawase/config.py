@@ -63,6 +63,10 @@ SAWARI_OU_SIGMA = 0.01     # 強度（標準偏差、ウキへの影響の大き
 SUCK_FORCE_RANGE = 0.015    # m (1.5cm: 最大力の位置、ヘラブナの口径の2-3倍)
 SUCK_FORCE_CUTOFF = 0.05    # m (5cm: この距離を超えると完全にゼロ)
 
+# Phase 3: ハリス拘束動的化パラメータ
+FISH_MASS = 0.2             # kg (200g: ヘラブナの標準的な質量)
+MAX_FISH_ACCEL = 50.0       # m/s² (魚の加速度上限、安全ガード)
+
 # 初期位置設定（仕掛け投入: 空中から落下）
 FLOAT_INITIAL_Y = 0.30           # m (ウキ初期位置: 水面から30cm上、空中から落下)
 FLOAT_INITIAL_VELOCITY_Y = 0.0   # m/s (初期速度: ゼロ、頂点から落下開始)

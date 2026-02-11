@@ -85,7 +85,40 @@ class FishAI:
             self.position[1] = 0.0
             if self.velocity[1] > 0:
                 self.velocity[1] *= -0.5  # 水面で跳ね返る
-    
+
+    def get_acceleration_from_suction(self, bait_pos: np.ndarray) -> np.ndarray:
+        """
+        吸い込み力から加速度を計算（Phase 3: ハリス拘束動的化）
+
+        魚がエサを吸い込む際の加速度を計算し、これがハリス張力に伝達される。
+        F = ma → a = F/m
+
+        Args:
+            bait_pos: エサの位置
+
+        Returns:
+            np.ndarray: 加速度 [ax, ay] (m/s²)
+        """
+        if self.state != FishState.ATTACK:
+            return np.array([0.0, 0.0])
+
+        # 吸い込み力を計算（双極子型力場）
+        suction_force = self.get_suck_force(bait_pos)
+
+        # F = ma → a = F/m
+        accel = suction_force / config.FISH_MASS
+
+        # NaN/Inf チェック
+        if np.any(np.isnan(accel)) or np.any(np.isinf(accel)):
+            return np.array([0.0, 0.0])
+
+        # 加速度上限（安全ガード）
+        magnitude = np.linalg.norm(accel)
+        if magnitude > config.MAX_FISH_ACCEL:
+            accel = accel / magnitude * config.MAX_FISH_ACCEL
+
+        return accel
+
     def _idle_behavior(self, dt: float, bait_position: np.ndarray, particle_density: float):
         """ランダム徘徊"""
         # ランダムな方向へ泳ぐ

@@ -114,6 +114,35 @@ class BaitModel:
         # ハリス張力を返す（ウキ方向=上向き。main.pyで符号反転して下向きに適用）
         return tippet_tension
 
+    def _calculate_tippet_tension(self, fish_acceleration: np.ndarray) -> float:
+        """
+        ハリス張力を計算（Phase 3: 魚の加速度を考慮）
+
+        仕様（project_spec_master.md）: T_tippet = m_bait · (g - a_fish[y])
+
+        魚が上昇加速 (a_fish[y] > g): T < 0 → ウキを下から引く（食い上げ）
+        魚が静止/下降: T > 0 → ウキを上から押す（消し込み）
+
+        Args:
+            fish_acceleration: 魚の加速度ベクトル [ax, ay] (m/s²)
+
+        Returns:
+            float: ハリス張力 (N、符号付き、y方向成分のみ)
+        """
+        # 魚の垂直加速度のみ考慮（y成分）
+        a_fish_y = fish_acceleration[1]
+
+        # ラグランジュ乗数法による張力
+        # 座標系: y正が上方向
+        tension = self.mass * (config.GRAVITY - a_fish_y)
+
+        # NaNチェック
+        if np.isnan(tension) or np.isinf(tension):
+            # フォールバック: 通常の重力張力
+            return self.mass * abs(config.GRAVITY)
+
+        return tension
+
     def update_position(self, dt: float):
         """
         Phase 1: 位置を旧加速度で更新（シンプレクティック積分の第1段階）
@@ -132,19 +161,24 @@ class BaitModel:
         # 位置を更新（旧加速度を使用）
         self.position = self.position + self.velocity * dt + 0.5 * self._acceleration_old * dt**2
 
-    def update_velocity(self, dt: float, float_position: np.ndarray = None) -> np.ndarray:
+    def update_velocity(self, dt: float, float_position: np.ndarray = None, fish_acceleration: np.ndarray = None) -> np.ndarray:
         """
         Phase 2: 速度を平均加速度で更新（シンプレクティック積分の第2段階）
 
         Args:
             dt: 時間刻み
             float_position: ウキの現在位置（ハリス結合用）
+            fish_acceleration: 魚の加速度ベクトル（Phase 3、Noneの場合はゼロ）
 
         Returns:
             ハリス張力ベクトル（エサがウキ方向に引かれる力）
         """
         if not self._use_symplectic:
             raise RuntimeError("update_position() must be called before update_velocity()")
+
+        # デフォルト値設定
+        if fish_acceleration is None:
+            fish_acceleration = np.array([0.0, 0.0])
 
         # 新位置での加速度を計算
         acceleration_new = self._calculate_acceleration()
@@ -162,8 +196,14 @@ class BaitModel:
         damping_factor = 1.0 / (1.0 + self.drag_coefficient * dt / self.mass)
         self.velocity *= damping_factor
 
-        # ハリス拘束を適用し、張力を取得
-        tippet_tension = self._apply_tippet_constraint(float_position)
+        # ハリス拘束を適用（位置ベース）
+        self._apply_tippet_constraint(float_position)
+
+        # ハリス張力を計算（力学ベース、Phase 3新規）
+        tension_magnitude = self._calculate_tippet_tension(fish_acceleration)
+
+        # 張力ベクトル（鉛直方向のみ）
+        tippet_tension = np.array([0.0, tension_magnitude])
 
         self._use_symplectic = False
 
