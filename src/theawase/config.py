@@ -54,6 +54,15 @@ HAND_Y_OFFSET = 0.50           # m (手元位置のY軸オフセット、竿の�
 PARTICLE_DENSITY_RANGE = 0.1   # m (パーティクル密度判定の距離閾値)
 PARTICLE_DENSITY_INCREMENT = 0.1  # パーティクル密度の増分値
 
+# Phase 2: FishAI高度化パラメータ
+# Ornstein-Uhlenbeck過程（サワリの時間相関）
+SAWARI_OU_THETA = 6.67     # 1/τ, τ=150ms（時定数: 魚体周辺のストークス流）
+SAWARI_OU_SIGMA = 0.01     # 強度（標準偏差、ウキへの影響の大きさ）
+
+# 魚の吸い込み力場（双極子型）
+SUCK_FORCE_RANGE = 0.015    # m (1.5cm: 最大力の位置、ヘラブナの口径の2-3倍)
+SUCK_FORCE_CUTOFF = 0.05    # m (5cm: この距離を超えると完全にゼロ)
+
 # 初期位置設定（仕掛け投入: 空中から落下）
 FLOAT_INITIAL_Y = 0.30           # m (ウキ初期位置: 水面から30cm上、空中から落下)
 FLOAT_INITIAL_VELOCITY_Y = 0.0   # m/s (初期速度: ゼロ、頂点から落下開始)
