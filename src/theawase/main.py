@@ -220,8 +220,6 @@ def main():
         rod.hand_position = np.array([0.0, 0.50])
         rod.tip_position = np.array([0.0, 0.50])
         rod.tip_velocity = np.array([0.0, 0.0])
-        
-        line.reset()
 
         float_model.position = np.array([0.0, config.FLOAT_INITIAL_Y])
         float_model.velocity = np.array([0.0, config.FLOAT_INITIAL_VELOCITY_Y])
