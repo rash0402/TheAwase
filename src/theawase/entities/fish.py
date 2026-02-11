@@ -143,7 +143,7 @@ class FishAI:
             
             # フレーム毎の判定なのでDtでスケーリング
             # (簡易ポアソン過程: P = rate * dt)
-            base_attack_rate = 5.0 # 回/秒 (試行回数ベース)
+            base_attack_rate = 2.0 # 回/秒（達人推奨: 活性を1/2.5に低下）
             if np.random.random() < attack_probability * base_attack_rate * dt:
                 self.state = FishState.ATTACK
                 self.state_timer = 0.0

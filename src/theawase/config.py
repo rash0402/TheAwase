@@ -45,7 +45,7 @@ MACRO_WATER_OFFSET_PX = 80     # マクロビュー水面線オフセット（�
 TOP_SEGMENT_HEIGHT_PX = 10     # px (トップの節模様セグメント高さ、細かい節でリアルさ向上）
 
 # ゲームロジック定数
-FISH_COUNT = 4                 # 魚の数（通常は4匹）
+FISH_COUNT = 2                 # 魚の数（達人推奨: 実釣に近い匹数）
 SUCK_TO_FLOAT_FACTOR = 0.015   # 魚の吸い込み力のウキへの伝達率（1.5%、感度を適度に抑える）
 SAWARI_DISTANCE_THRESHOLD = 0.15  # m (魚がこの距離以内でサワリを発生)
 SAWARI_TRANSMISSION_FACTOR = 0.05  # サワリ力のウキへの伝達率（5%、微細な振動として伝達）
@@ -56,7 +56,7 @@ PARTICLE_DENSITY_INCREMENT = 0.1  # パーティクル密度の増分値
 
 # Phase 2: FishAI高度化パラメータ
 # Ornstein-Uhlenbeck過程（サワリの時間相関）
-SAWARI_OU_THETA = 3.33     # 1/τ, τ=300ms（時定数延長: よりフワフワした揺れ）
+SAWARI_OU_THETA = 1.0      # 1/τ, τ=1000ms（達人推奨: 実釣の「じわじわ感」）
 SAWARI_OU_SIGMA = 0.01     # 強度（標準偏差、ウキへの影響の大きさ）
 
 # 魚の吸い込み力場（双極子型）

@@ -56,12 +56,18 @@ _FISH_STATE_NAMES = {
 
 
 def create_fish_school(count: int = config.FISH_COUNT) -> list[FishAI]:
-    """魚群を生成（エサ深度付近に配置）"""
+    """
+    魚群を生成（達人推奨: 実釣に近い配置と活性）
+    
+    - 深度: 40-60cm（実釣の底釣りに相当）
+    - 匹数: 2匹（60秒で0-1枚が現実的）
+    - 活性: hunger=0.3-0.5（待つ楽しみ）
+    """
     base_positions = [
-        np.array([0.15, -0.80]),  # 水面下80cm（タナを深く）
-        np.array([-0.12, -0.85]),  # 水面下85cm
-        np.array([0.05, -0.90]),   # 水面下90cm
-        np.array([-0.2, -0.75]),   # 水面下75cm
+        np.array([0.15, -0.40]),  # 水面下40cm（浅く）
+        np.array([-0.12, -0.45]),  # 水面下45cm
+        np.array([0.05, -0.50]),   # 水面下50cm
+        np.array([-0.2, -0.55]),   # 水面下55cm
     ]
     fishes: list[FishAI] = []
     for i in range(count):
@@ -71,7 +77,7 @@ def create_fish_school(count: int = config.FISH_COUNT) -> list[FishAI]:
         fishes.append(
             FishAI(
                 position=pos,
-                hunger=float(np.random.uniform(0.45, 0.85)),
+                hunger=float(np.random.uniform(0.3, 0.5)),  # 活性低下
                 caution=float(np.random.uniform(0.2, 0.6)),
             )
         )
@@ -88,11 +94,16 @@ def _get_jp_font(size: int) -> pygame.font.Font:
 
 def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel) -> tuple[int, str] | None:
     """
-    アワセ判定 v2.0（完全版）
+    アワセ判定 v3.0（実釣感覚版）
     
-    Priority A: タイミングウィンドウの細分化（BiteType別）
-    Priority B: 重複判定防止（後述のクールダウンで実装）
-    Priority C: 複数魚の明確な処理（最初にATTACKした魚を優先）
+    達人の推奨に基づき、タイミングウィンドウを実釣の人間反応時間に調整:
+    - 視覚判断: 100ms
+    - 運動反応: 120ms
+    - 合計: 220ms前後が理想
+    
+    Priority A: タイミングウィンドウの細分化（実釣感覚）
+    Priority B: 重複判定防止（クールダウン）
+    Priority C: 複数魚の明確な処理
     
     Returns:
         (スコア, メッセージ) or None
@@ -114,30 +125,30 @@ def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel) 
         t_ms = target_fish.state_timer * 1000  # ミリ秒変換
         bite = target_fish.bite_type
         
-        # Priority A: BiteType別のタイミングウィンドウ判定
+        # Priority A: BiteType別のタイミングウィンドウ判定（実釣感覚版）
         if bite == BiteType.KESHIKOMI:
-            # 消し込み: 最も難しい（狭いウィンドウ: 50-100ms）
-            if 50 <= t_ms <= 100:
+            # 消し込み: 最も難しい（瞬間勝負、100ms幅）
+            if 150 <= t_ms <= 250:
                 return (3000, "EXCELLENT! 難しい消し込みを捉えた")
-            elif 30 <= t_ms < 50 or 100 < t_ms <= 120:
+            elif 100 <= t_ms < 150 or 250 < t_ms <= 300:
                 return (1500, "GOOD! 消し込み（ギリギリ）")
             else:
                 return (-200, "MISS: 消し込みに遅れた")
         
         elif bite == BiteType.KUIAGE:
-            # 食い上げ: チャンスアタリ（広いウィンドウ: 40-160ms）
-            if 50 <= t_ms <= 120:
-                return (2200, "PERFECT! 食い上げを捉えた")
-            elif 40 <= t_ms < 50 or 120 < t_ms <= 160:
+            # 食い上げ: チャンスアタリ（荷重が抜けるため広い、250ms幅）
+            if 150 <= t_ms <= 400:
+                return (2500, "PERFECT! 食い上げを捉えた")
+            elif 100 <= t_ms < 150 or 400 < t_ms <= 500:
                 return (1200, "GOOD! 食い上げ（やや早い/遅い）")
             else:
                 return (-50, "BAD: タイミング外")
         
         else:  # BiteType.NORMAL
-            # 通常アタリ: 標準ウィンドウ（50-140ms）
-            if 50 <= t_ms <= 110:
+            # 通常アタリ: 標準ウィンドウ（150ms幅）
+            if 150 <= t_ms <= 300:
                 return (2500, "PERFECT! 理想のアワセ")
-            elif 30 <= t_ms < 50 or 110 < t_ms <= 140:
+            elif 100 <= t_ms < 150 or 300 < t_ms <= 350:
                 return (1000, "GOOD! やや早い/遅い")
             else:
                 return (-100, "BAD: タイミング外")
