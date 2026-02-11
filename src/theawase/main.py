@@ -112,12 +112,8 @@ def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel, 
     # 1. 鋭い上方向の動きを検出
     if not trackpad.is_awase_gesture(threshold=config.AWASE_THRESHOLD):
         return None
-    
-    # 2. 水切りチェック（必須）
-    if not line.is_water_cut:
-        return (-50, "MISS: 水切り未実行")
-    
-    # 3. Priority C: ATTACKしている魚を列挙し、最初にATTACKした魚を特定
+
+    # 2. Priority C: ATTACKしている魚を列挙し、最初にATTACKした魚を特定
     attacking_fishes = [f for f in fishes if f.state == FishState.ATTACK]
     
     result = None
@@ -291,9 +287,7 @@ def main():
                         reset_physics()
                 
                 elif game_state['state'] == GameState.PLAYING:
-                    if event.key == pygame.K_SPACE:
-                        line.water_cut()
-                    elif event.key == pygame.K_r:
+                    if event.key == pygame.K_r:
                         reset_physics() # デバッグ用リセット
 
                 elif game_state['state'] == GameState.RESULT:

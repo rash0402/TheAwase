@@ -17,7 +17,6 @@ ROD_DAMPING = 3.0     # Ns/m (Verlet統合後の最適値)
 LINE_STIFFNESS = 100.0   # N/m
 LINE_REST_LENGTH = 1.5   # m (張力ゼロの基準長: 竿先〜ウキ間、実釣に即した値)
 LINE_MAX_STRETCH = 0.3   # m (道糸の最大伸長許容値)
-SURFACE_TENSION_FACTOR = 0.1  # 水切り前の張力伝達率
 
 # ウキパラメータ
 WATER_DENSITY = 1000.0  # kg/m³

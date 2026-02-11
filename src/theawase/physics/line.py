@@ -9,7 +9,7 @@ class LineModel:
     道糸の物理モデル
 
     - 不感帯（デッドゾーン）付きバネモデル
-    - 水切り（表面張力）の状態管理
+    - 常時100%の張力伝達（水切り機能は削除）
     """
 
     def __init__(
@@ -19,20 +19,6 @@ class LineModel:
     ):
         self.stiffness = stiffness
         self.rest_length = rest_length
-        
-        # 水切り状態
-        self.is_water_cut = False
-        self.tension_transmission = config.SURFACE_TENSION_FACTOR
-    
-    def water_cut(self):
-        """水切りを実行（竿先を水面下に押し込む操作）"""
-        self.is_water_cut = True
-        self.tension_transmission = 1.0
-    
-    def reset(self):
-        """状態リセット"""
-        self.is_water_cut = False
-        self.tension_transmission = config.SURFACE_TENSION_FACTOR
     
     def calculate_tension(
         self,
@@ -72,8 +58,8 @@ class LineModel:
             # 糸が緩んでいる（張力なし）
             return np.array([0.0, 0.0])
         
-        # 張力の大きさ
-        tension_magnitude = self.stiffness * extension * self.tension_transmission
+        # 張力の大きさ（常時100%伝達）
+        tension_magnitude = self.stiffness * extension
         
         # 張力上限（物理発散防止）
         max_tension = 5.0  # N（ニュートン）

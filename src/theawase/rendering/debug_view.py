@@ -121,13 +121,8 @@ class DebugViewRenderer:
         float_screen = self._world_to_screen(float_pos, view_rect)
 
         # 道糸（竿先→ウキ）
-        line_color = (100, 200, 100) if line.is_water_cut else (200, 100, 100)
+        line_color = (100, 200, 100)  # 緑色（常時接続）
         pygame.draw.line(screen, line_color, tip_screen, float_screen, 2)
-        # 道糸ラベル（中点付近）
-        line_mid = ((tip_screen[0] + float_screen[0]) // 2,
-                    (tip_screen[1] + float_screen[1]) // 2)
-        line_label = "水切り済" if line.is_water_cut else "水切り前"
-        self._draw_label(screen, font, line_label, line_mid, line_color, (-70, -4))
 
         # ハリス（ウキ→エサ）
         pygame.draw.line(screen, (150, 150, 150), float_screen, bait_screen, 1)
