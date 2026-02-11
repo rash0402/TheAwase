@@ -409,7 +409,7 @@ def main():
         # 共通UI (Score, Time, Fish Count)
         score_text = font_ui.render(f"SCORE: {game_state['score']}", True, (255, 255, 255))
         time_text = font_ui.render(f"TIME: {game_state['time_left']:.1f}", True, (255, 255, 255) if game_state['time_left'] > 10 else (255, 50, 50))
-        fish_text = font_ui.render(f"🐟 × {game_state['fish_caught']}", True, (255, 200, 100))
+        fish_text = font_ui.render(f"FISH: {game_state['fish_caught']}", True, (255, 200, 100))
         screen.blit(score_text, (20, 20))
         screen.blit(fish_text, (20, 50))  # スコアの下に表示
         screen.blit(time_text, (half_width - 140, 20))
