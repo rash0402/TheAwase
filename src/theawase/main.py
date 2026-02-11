@@ -9,7 +9,7 @@ from theawase.physics.rod import RodModel
 from theawase.physics.line import LineModel
 from theawase.physics.float_model import FloatModel
 from theawase.physics.bait import BaitModel
-from theawase.entities.fish import FishAI, FishState
+from theawase.entities.fish import FishAI, FishState, BiteType
 from theawase.input.trackpad import TrackpadInput
 from theawase.rendering.macro_view import MacroViewRenderer
 from theawase.rendering.debug_view import DebugViewRenderer
@@ -87,22 +87,67 @@ def _get_jp_font(size: int) -> pygame.font.Font:
 
 
 def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel) -> tuple[int, str] | None:
-    """アワセ判定 (スコア, メッセージ) を返す"""
-    # 鋭い上方向の動きを検出
+    """
+    アワセ判定 v2.0（完全版）
+    
+    Priority A: タイミングウィンドウの細分化（BiteType別）
+    Priority B: 重複判定防止（後述のクールダウンで実装）
+    Priority C: 複数魚の明確な処理（最初にATTACKした魚を優先）
+    
+    Returns:
+        (スコア, メッセージ) or None
+    """
+    # 1. 鋭い上方向の動きを検出
     if not trackpad.is_awase_gesture(threshold=config.AWASE_THRESHOLD):
         return None
     
-    # 水切りチェック
+    # 2. 水切りチェック（必須）
     if not line.is_water_cut:
         return (-50, "MISS: 水切り未実行")
     
-    # 魚が攻撃中か？
-    if any(fish.state == FishState.ATTACK for fish in fishes):
-        return (1000, "HIT! 完璧")  # 大成功
-    elif any(fish.state == FishState.APPROACH for fish in fishes):
-        return (-100, "EARLY: 早アワセ")
-    else:
-        return (-50, "MISS: 空振り")
+    # 3. Priority C: ATTACKしている魚を列挙し、最初にATTACKした魚を特定
+    attacking_fishes = [f for f in fishes if f.state == FishState.ATTACK]
+    
+    if attacking_fishes:
+        # state_timerが最も進んでいる魚（＝最初にATTACKした魚）を判定対象に
+        target_fish = max(attacking_fishes, key=lambda f: f.state_timer)
+        t_ms = target_fish.state_timer * 1000  # ミリ秒変換
+        bite = target_fish.bite_type
+        
+        # Priority A: BiteType別のタイミングウィンドウ判定
+        if bite == BiteType.KESHIKOMI:
+            # 消し込み: 最も難しい（狭いウィンドウ: 50-100ms）
+            if 50 <= t_ms <= 100:
+                return (3000, "EXCELLENT! 難しい消し込みを捉えた")
+            elif 30 <= t_ms < 50 or 100 < t_ms <= 120:
+                return (1500, "GOOD! 消し込み（ギリギリ）")
+            else:
+                return (-200, "MISS: 消し込みに遅れた")
+        
+        elif bite == BiteType.KUIAGE:
+            # 食い上げ: チャンスアタリ（広いウィンドウ: 40-160ms）
+            if 50 <= t_ms <= 120:
+                return (2200, "PERFECT! 食い上げを捉えた")
+            elif 40 <= t_ms < 50 or 120 < t_ms <= 160:
+                return (1200, "GOOD! 食い上げ（やや早い/遅い）")
+            else:
+                return (-50, "BAD: タイミング外")
+        
+        else:  # BiteType.NORMAL
+            # 通常アタリ: 標準ウィンドウ（50-140ms）
+            if 50 <= t_ms <= 110:
+                return (2500, "PERFECT! 理想のアワセ")
+            elif 30 <= t_ms < 50 or 110 < t_ms <= 140:
+                return (1000, "GOOD! やや早い/遅い")
+            else:
+                return (-100, "BAD: タイミング外")
+    
+    # 4. APPROACH中: 早アワセ
+    if any(fish.state == FishState.APPROACH for fish in fishes):
+        return (-100, "EARLY: まだ吸い込んでいない")
+    
+    # 5. その他: 空振り
+    return (-50, "MISS: 空振り")
 
 
 def main():
@@ -155,6 +200,7 @@ def main():
         'time_left': 60.0,
         'last_result': None,
         'result_timer': 0,
+        'awase_cooldown': 0.0,  # Priority B: 重複判定防止
     }
     
     # 画面領域
@@ -331,14 +377,20 @@ def main():
                 game_state['time_left'] = 0
                 game_state['state'] = GameState.RESULT
             
-            result = check_awase(trackpad, fishes, line)
-            if result:
-                score, msg = result
-                game_state['last_result'] = msg
-                game_state['score'] += score
-                game_state['result_timer'] = 2.0
-                if score > 0: # HITで時間少し延長？（ボーナス）
-                    pass
+            # Priority B: アワセクールダウン更新
+            if game_state['awase_cooldown'] > 0:
+                game_state['awase_cooldown'] -= dt
+            else:
+                # クールダウンが終わっている場合のみ判定
+                result = check_awase(trackpad, fishes, line)
+                if result:
+                    score, msg = result
+                    game_state['last_result'] = msg
+                    game_state['score'] += score
+                    game_state['result_timer'] = 2.0
+                    game_state['awase_cooldown'] = 0.5  # 0.5秒クールダウン設定
+                    if score > 0: # HITで時間少し延長？（ボーナス）
+                        pass
         
         if game_state['result_timer'] > 0:
             game_state['result_timer'] -= dt
