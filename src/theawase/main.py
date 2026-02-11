@@ -201,6 +201,7 @@ def main():
         'last_result': None,
         'result_timer': 0,
         'awase_cooldown': 0.0,  # Priority B: 重複判定防止
+        'fish_caught': 0,  # 釣れた魚の数
     }
     
     # 画面領域
@@ -232,6 +233,7 @@ def main():
                     if event.key == pygame.K_SPACE:
                         game_state['state'] = GameState.PLAYING
                         game_state['score'] = 0
+                        game_state['fish_caught'] = 0
                         game_state['time_left'] = 60.0
                         reset_physics()
                 
@@ -389,8 +391,8 @@ def main():
                     game_state['score'] += score
                     game_state['result_timer'] = 2.0
                     game_state['awase_cooldown'] = 0.5  # 0.5秒クールダウン設定
-                    if score > 0: # HITで時間少し延長？（ボーナス）
-                        pass
+                    if score > 0:  # 成功時
+                        game_state['fish_caught'] += 1  # 魚カウント増加
         
         if game_state['result_timer'] > 0:
             game_state['result_timer'] -= dt
@@ -404,10 +406,12 @@ def main():
         pygame.draw.line(screen, (100, 100, 100), (half_width, 0), (half_width, config.SCREEN_HEIGHT), 2)
         
         # UI Overlay
-        # 共通UI (Score, Time)
+        # 共通UI (Score, Time, Fish Count)
         score_text = font_ui.render(f"SCORE: {game_state['score']}", True, (255, 255, 255))
         time_text = font_ui.render(f"TIME: {game_state['time_left']:.1f}", True, (255, 255, 255) if game_state['time_left'] > 10 else (255, 50, 50))
+        fish_text = font_ui.render(f"🐟 × {game_state['fish_caught']}", True, (255, 200, 100))
         screen.blit(score_text, (20, 20))
+        screen.blit(fish_text, (20, 50))  # スコアの下に表示
         screen.blit(time_text, (half_width - 140, 20))
 
         # ステート別オーバーレイ
