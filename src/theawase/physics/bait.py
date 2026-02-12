@@ -143,25 +143,32 @@ class BaitModel:
 
         return tension
 
-    def update_position(self, dt: float):
+    def update_position(self, dt: float, external_force: np.ndarray = None):
         """
         Phase 1: 位置を旧加速度で更新（シンプレクティック積分の第1段階）
 
         Args:
             dt: 時間刻み
+            external_force: 外力（魚の吸い込み力など）
         """
         self._use_symplectic = True
 
         # 質量減少とパーティクル放出
         self._apply_mass_loss(dt)
 
-        # 旧加速度を計算して保存
-        self._acceleration_old = self._calculate_acceleration()
+        # 旧加速度を計算して保存（重力 + 外力）
+        gravity_accel = self._calculate_acceleration()
+        if external_force is not None:
+            external_accel = external_force / self.mass
+        else:
+            external_accel = np.array([0.0, 0.0])
+
+        self._acceleration_old = gravity_accel + external_accel
 
         # 位置を更新（旧加速度を使用）
         self.position = self.position + self.velocity * dt + 0.5 * self._acceleration_old * dt**2
 
-    def update_velocity(self, dt: float, float_position: np.ndarray = None, fish_acceleration: np.ndarray = None) -> np.ndarray:
+    def update_velocity(self, dt: float, float_position: np.ndarray = None, fish_acceleration: np.ndarray = None, external_force: np.ndarray = None) -> np.ndarray:
         """
         Phase 2: 速度を平均加速度で更新（シンプレクティック積分の第2段階）
 
@@ -169,6 +176,7 @@ class BaitModel:
             dt: 時間刻み
             float_position: ウキの現在位置（ハリス結合用）
             fish_acceleration: 魚の加速度ベクトル（Phase 3、Noneの場合はゼロ）
+            external_force: 外力（魚の吸い込み力など）
 
         Returns:
             ハリス張力ベクトル（エサがウキ方向に引かれる力）
@@ -180,8 +188,14 @@ class BaitModel:
         if fish_acceleration is None:
             fish_acceleration = np.array([0.0, 0.0])
 
-        # 新位置での加速度を計算
-        acceleration_new = self._calculate_acceleration()
+        # 新位置での加速度を計算（重力 + 外力）
+        gravity_accel = self._calculate_acceleration()
+        if external_force is not None:
+            external_accel = external_force / self.mass
+        else:
+            external_accel = np.array([0.0, 0.0])
+
+        acceleration_new = gravity_accel + external_accel
 
         # 速度を更新（平均加速度を使用: シンプレクティック性の鍵）
         _, self.velocity = verlet_integrate_symplectic(
