@@ -327,10 +327,8 @@ def main():
             fish.update(dt, bait.position, particle_density, bait_mass_ratio)
             disturbance_force_total += fish.get_disturbance_force()
 
-        suck_force = np.array([0.0, 0.0])
-        for fish in fishes:
-            suck_force += fish.get_suck_force(bait.position)
-        suck_on_float_old = suck_force * config.SUCK_TO_FLOAT_FACTOR
+        # Phase 3: 魚の吸い込み力は bait に作用し、ハリス張力を通じてウキに伝達される
+        # （suck_on_float_old は削除。直接力は物理的に不正確）
         sawari_on_float_old = disturbance_force_total * config.SAWARI_TRANSMISSION_FACTOR
 
         # 旧ハリス張力（エサの旧位置で計算済み）
@@ -352,7 +350,8 @@ def main():
             if force_along_old > 0:
                 constraint_force_old = line_dir_old * force_along_old
 
-        float_model.update_position(dt, tension_old + suck_on_float_old + sawari_on_float_old - tippet_reaction_old + constraint_force_old, tippet_tension_vertical_old)
+        # Phase 3: 魚の力はハリス張力を通じて正しく伝達されるため、直接力は不要
+        float_model.update_position(dt, tension_old + sawari_on_float_old - tippet_reaction_old + constraint_force_old, tippet_tension_vertical_old)
 
         # Pass 2: 新位置で外力を再計算し、速度を平均加速度で更新
         # Pass 2.1: 竿の速度更新
@@ -395,7 +394,8 @@ def main():
         # tippet_reaction_new は [Fx, Fy] で、Fy > 0 は上向き（エサがウキから受ける力）
         tippet_tension_vertical = abs(tippet_reaction_new[1])
 
-        float_model.update_velocity(dt, tension_new + suck_on_float_old + sawari_on_float_old - tippet_reaction_new + constraint_force_new, tippet_tension_vertical)
+        # Phase 3: 魚の力はハリス張力を通じて正しく伝達されるため、直接力は不要
+        float_model.update_velocity(dt, tension_new + sawari_on_float_old - tippet_reaction_new + constraint_force_new, tippet_tension_vertical)
 
         # 着水判定と速度減衰（ウキ）
         # 水面付近（±1cm）で下向き速度がある場合、着水として速度を減衰
