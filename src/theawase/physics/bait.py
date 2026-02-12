@@ -114,34 +114,55 @@ class BaitModel:
         # ハリス張力を返す（ウキ方向=上向き。main.pyで符号反転して下向きに適用）
         return tippet_tension
 
-    def _calculate_tippet_tension(self, fish_acceleration: np.ndarray) -> float:
+    def _calculate_tippet_tension_vector(self, float_position: np.ndarray,
+                                        fish_acceleration: np.ndarray) -> np.ndarray:
         """
-        ハリス張力を計算（Phase 3: 魚の加速度を考慮）
+        ハリス張力を2次元ベクトルとして計算（Phase 3改良版: 角度依存性追加）
 
-        仕様（project_spec_master.md）: T_tippet = m_bait · (g - a_fish[y])
+        仕様:
+            T_magnitude = m_bait · (g - a_fish[y])  # Phase 3式を保持
+            T_vector = -T_magnitude · n̂            # n̂: ウキ→エサ方向の単位ベクトル
 
-        魚が上昇加速 (a_fish[y] > g): T < 0 → ウキを下から引く（食い上げ）
-        魚が静止/下降: T > 0 → ウキを上から押す（消し込み）
+        物理的意味:
+            - ハリスが角度θを成すとき、張力は横成分 T_x = T·sin(θ) を持つ
+            - ウキとエサは横方向に相互作用（ウキの強い横抵抗がエサを引き戻す）
 
         Args:
+            float_position: ウキの現在位置 [x, y] (m)
             fish_acceleration: 魚の加速度ベクトル [ax, ay] (m/s²)
 
         Returns:
-            float: ハリス張力 (N、符号付き、y方向成分のみ)
+            np.ndarray: ハリス張力ベクトル [T_x, T_y] (N)
+                        エサがウキから受ける力（ウキ方向への引き）
         """
-        # 魚の垂直加速度のみ考慮（y成分）
+        # 1. 張力の大きさ（Phase 3式を保持）
         a_fish_y = fish_acceleration[1]
-
-        # ラグランジュ乗数法による張力
-        # 座標系: y正が上方向
-        tension = self.mass * (config.GRAVITY - a_fish_y)
+        T_magnitude = self.mass * (config.GRAVITY - a_fish_y)
 
         # NaNチェック
-        if np.isnan(tension) or np.isinf(tension):
-            # フォールバック: 通常の重力張力
-            return self.mass * abs(config.GRAVITY)
+        if np.isnan(T_magnitude) or np.isinf(T_magnitude):
+            T_magnitude = self.mass * abs(config.GRAVITY)
 
-        return tension
+        # 2. ハリスの方向を計算
+        diff = self.position - float_position  # ウキ→エサベクトル
+        dist = np.linalg.norm(diff)
+
+        if dist < 1e-6:
+            # 退化ケース: 鉛直方向にフォールバック
+            return np.array([0.0, T_magnitude])
+
+        n_hat = diff / dist  # 単位ベクトル
+
+        # 3. 張力ベクトル（エサがウキから受ける力 = ウキ方向への引き）
+        tippet_tension = -T_magnitude * n_hat
+
+        # 4. 安全ガード: 横方向力を制限（極端な角度での発散防止）
+        if hasattr(config, 'TIPPET_LATERAL_FORCE_LIMIT'):
+            max_lateral = T_magnitude * config.TIPPET_LATERAL_FORCE_LIMIT
+            if abs(tippet_tension[0]) > max_lateral:
+                tippet_tension[0] = np.sign(tippet_tension[0]) * max_lateral
+
+        return tippet_tension
 
     def update_position(self, dt: float, external_force: np.ndarray = None):
         """
@@ -213,11 +234,8 @@ class BaitModel:
         # ハリス拘束を適用（位置ベース）
         self._apply_tippet_constraint(float_position)
 
-        # ハリス張力を計算（力学ベース、Phase 3新規）
-        tension_magnitude = self._calculate_tippet_tension(fish_acceleration)
-
-        # 張力ベクトル（鉛直方向のみ）
-        tippet_tension = np.array([0.0, tension_magnitude])
+        # ハリス張力を計算（力学ベース、Phase 3改良版: 2次元ベクトル）
+        tippet_tension = self._calculate_tippet_tension_vector(float_position, fish_acceleration)
 
         self._use_symplectic = False
 

@@ -336,8 +336,17 @@ def main():
         # Phase 3: 魚の力（吸い込み、サワリ）は bait に作用し、ハリス張力を通じてウキに伝達される
         # （直接力は物理的に不正確なため削除）
 
-        # 旧ハリス張力（エサの旧位置で計算済み）
-        tippet_reaction_old = np.array([0.0, bait.mass * config.GRAVITY])
+        # 旧ハリス張力（エサの旧位置での簡易計算: 角度依存性を含む）
+        diff_old = bait.position - float_model.position
+        dist_old = np.linalg.norm(diff_old)
+
+        if dist_old > 1e-6:
+            n_hat_old = diff_old / dist_old
+            T_mag_old = bait.mass * config.GRAVITY
+            tippet_reaction_old = -T_mag_old * n_hat_old  # エサに作用する力
+        else:
+            tippet_reaction_old = np.array([0.0, bait.mass * config.GRAVITY])
+
         tippet_tension_vertical_old = abs(tippet_reaction_old[1])
 
         # 旧拘束力
