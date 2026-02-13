@@ -3,6 +3,7 @@
 import numpy as np
 from theawase import config
 from theawase.physics.integrator import verlet_integrate, verlet_integrate_symplectic
+from theawase.physics.utils import clamp_acceleration
 
 
 class RodModel:
@@ -55,23 +56,11 @@ class RodModel:
         # 減衰力（ダンパ）
         damping_force = -self.damping * self.tip_velocity
 
-        # 合力
+        # 合力 → 加速度
         total_force = spring_force + damping_force + external_force
-
-        # 加速度
         acceleration = total_force / self.mass
 
-        # 加速度制限（物理発散防止）
-        max_acceleration = 1000.0  # m/s^2
-        acc_magnitude = np.linalg.norm(acceleration)
-        if acc_magnitude > max_acceleration:
-            acceleration = (acceleration / acc_magnitude) * max_acceleration
-
-        # NaN チェック
-        if not np.all(np.isfinite(acceleration)):
-            acceleration = np.array([0.0, 0.0])
-
-        return acceleration
+        return clamp_acceleration(acceleration, config.MAX_ACCELERATION)
 
     def update_position(self, dt: float, external_force: np.ndarray = None):
         """

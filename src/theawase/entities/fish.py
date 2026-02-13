@@ -3,6 +3,7 @@
 import numpy as np
 from enum import Enum, auto
 from theawase import config
+from theawase.physics.utils import clamp_acceleration
 
 
 class FishState(Enum):
@@ -91,33 +92,21 @@ class FishAI:
         吸い込み力から加速度を計算（Phase 3: ハリス拘束動的化）
 
         魚がエサを吸い込む際の加速度を計算し、これがハリス張力に伝達される。
-        F = ma → a = F/m
+        F = ma -> a = F/m
 
         Args:
             bait_pos: エサの位置
 
         Returns:
-            np.ndarray: 加速度 [ax, ay] (m/s²)
+            np.ndarray: 加速度 [ax, ay] (m/s^2)
         """
         if self.state != FishState.ATTACK:
             return np.array([0.0, 0.0])
 
-        # 吸い込み力を計算（双極子型力場）
         suction_force = self.get_suck_force(bait_pos)
-
-        # F = ma → a = F/m
         accel = suction_force / config.FISH_MASS
 
-        # NaN/Inf チェック
-        if np.any(np.isnan(accel)) or np.any(np.isinf(accel)):
-            return np.array([0.0, 0.0])
-
-        # 加速度上限（安全ガード）
-        magnitude = np.linalg.norm(accel)
-        if magnitude > config.MAX_FISH_ACCEL:
-            accel = accel / magnitude * config.MAX_FISH_ACCEL
-
-        return accel
+        return clamp_acceleration(accel, config.MAX_FISH_ACCEL)
 
     def _idle_behavior(self, dt: float, bait_position: np.ndarray, particle_density: float):
         """ランダム徘徊"""
@@ -214,7 +203,7 @@ class FishAI:
             self.velocity += dive_dir * move_speed * 1.5 * dt
         else:
             # NORMAL: その場で少しランダム
-             self.velocity += np.random.randn(2) * 0.05 * dt
+            self.velocity += np.random.randn(2) * 0.05 * dt
 
         if self.state_timer > attack_duration:
             self.state = FishState.COOLDOWN

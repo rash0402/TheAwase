@@ -40,3 +40,48 @@ def apply_water_entry_damping(
     velocity_damped[1] *= damping
 
     return velocity_damped
+
+
+def clamp_acceleration(acceleration: np.ndarray, max_magnitude: float) -> np.ndarray:
+    """
+    加速度をクランプし、NaN/Infをゼロに置換
+
+    全物理モデル共通の安全ガード。
+
+    Args:
+        acceleration: 加速度ベクトル [ax, ay]
+        max_magnitude: 加速度の最大マグニチュード (m/s²)
+
+    Returns:
+        安全な加速度ベクトル
+    """
+    if not np.all(np.isfinite(acceleration)):
+        return np.array([0.0, 0.0])
+
+    magnitude = np.linalg.norm(acceleration)
+    if magnitude > max_magnitude:
+        return (acceleration / magnitude) * max_magnitude
+
+    return acceleration
+
+
+def rotate_point(offset_x: float, offset_y: float, angle_rad: float) -> tuple[float, float]:
+    """
+    2D回転行列を適用
+
+    ウキの回転描画で、先端を回転中心にするためのオフセット計算に使用。
+
+    Args:
+        offset_x: 回転中心からのX方向オフセット
+        offset_y: 回転中心からのY方向オフセット
+        angle_rad: 回転角度 (ラジアン)
+
+    Returns:
+        (rotated_x, rotated_y)
+    """
+    cos_a = np.cos(angle_rad)
+    sin_a = np.sin(angle_rad)
+    return (
+        offset_x * cos_a - offset_y * sin_a,
+        offset_x * sin_a + offset_y * cos_a,
+    )

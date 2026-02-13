@@ -71,3 +71,18 @@ FLOAT_INITIAL_Y = 0.30           # m (ウキ初期位置: 水面から30cm上、
 FLOAT_INITIAL_VELOCITY_Y = 0.0   # m/s (初期速度: ゼロ、頂点から落下開始)
 WATER_ENTRY_DAMPING = 0.3        # 着水時の速度減衰係数（水面衝突で速度が70%減衰）
 WATER_ENTRY_ZONE = 0.10          # m (±10cm range for gradual damping)
+
+# 安全ガード（物理発散防止）
+MAX_ACCELERATION = 1000.0        # m/s² (加速度上限、全物理モデル共通)
+MAX_ANGULAR_VELOCITY = 10.0      # rad/s (角速度上限)
+MAX_ANGULAR_ACCELERATION = 50.0  # rad/s² (角加速度上限)
+MAX_SPEED = 100.0                # m/s (速度上限)
+
+# 魚の状態名（日本語、UIとデバッグ表示共通）
+# ※ FishState enumへの依存を避けるため、文字列キーで定義
+FISH_STATE_NAMES_JP = {
+    "IDLE": "待機",
+    "APPROACH": "接近",
+    "ATTACK": "吸込み",
+    "COOLDOWN": "離脱",
+}

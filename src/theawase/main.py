@@ -40,20 +40,12 @@ def _find_jp_font_path():
         if path: return path
         path = pygame.font.match_font('takaoexgothic')
         if path: return path
-    except:
+    except Exception:
         pass
         
     return None
 
 _JP_FONT_PATH = _find_jp_font_path()
-
-# 魚の状態名（日本語）
-_FISH_STATE_NAMES = {
-    FishState.IDLE: "待機",
-    FishState.APPROACH: "接近",
-    FishState.ATTACK: "吸込み",
-    FishState.COOLDOWN: "離脱",
-}
 
 
 def create_fish_school(count: int = config.FISH_COUNT) -> list[FishAI]:
@@ -91,6 +83,48 @@ def _get_jp_font(size: int) -> pygame.font.Font:
     if _JP_FONT_PATH:
         return pygame.font.Font(_JP_FONT_PATH, size)
     return pygame.font.Font(None, size)
+
+
+
+def _calculate_line_constraint_force(
+    float_position: np.ndarray,
+    tip_position: np.ndarray,
+    max_line_dist: float,
+    gravity_on_float: float,
+    buoyancy: float,
+    tippet_reaction_y: float,
+) -> np.ndarray:
+    """
+    道糸の最大伸長を超えた場合の拘束力を計算
+
+    糸がピンと張ったとき、ウキが下方に引かれすぎないよう
+    糸方向に沿った拘束力を返す。
+
+    Args:
+        float_position: ウキの現在位置
+        tip_position: 竿先の現在位置
+        max_line_dist: 道糸の最大長さ (m)
+        gravity_on_float: ウキにかかる重力 (N)
+        buoyancy: ウキの浮力 (N)
+        tippet_reaction_y: ハリス反力のY成分 (N)
+
+    Returns:
+        拘束力ベクトル [Fx, Fy]
+    """
+    line_diff = float_position - tip_position
+    line_dist = np.linalg.norm(line_diff)
+
+    if line_dist <= max_line_dist - 0.001 or line_dist < 1e-6:
+        return np.array([0.0, 0.0])
+
+    line_dir = line_diff / line_dist
+    net_down = gravity_on_float + tippet_reaction_y - buoyancy
+    force_along = -net_down * line_dir[1]
+
+    if force_along > 0:
+        return line_dir * force_along
+
+    return np.array([0.0, 0.0])
 
 
 def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel, game_state: dict, bait: BaitModel) -> tuple[int, str] | None:
@@ -332,29 +366,22 @@ def main():
             fish.update(dt, bait.position, particle_density, bait_mass_ratio)
             disturbance_force_total += fish.get_disturbance_force()
 
-        # Phase 3: 魚の力（吸い込み、サワリ）は bait に作用し、ハリス張力を通じてウキに伝達される
-        # （直接力は物理的に不正確なため削除）
-
         # 旧ハリス張力（エサの旧位置での簡易計算: 垂直方向のみ）
         tippet_reaction_old = np.array([0.0, bait.mass * config.GRAVITY])
         tippet_tension_vertical_old = abs(tippet_reaction_old[1])
 
-        # 旧拘束力
+        # 道糸・拘束の共通パラメータ
         tip_pos_old = rod.get_tip_position()
-        line_diff_old = float_model.position - tip_pos_old
-        line_dist_old = np.linalg.norm(line_diff_old)
         max_line_dist = config.LINE_REST_LENGTH + config.LINE_MAX_STRETCH
-        constraint_force_old = np.array([0.0, 0.0])
-        if line_dist_old > max_line_dist - 0.001 and line_dist_old > 1e-6:
-            line_dir_old = line_diff_old / line_dist_old
-            gravity_on_float = float_model.mass * config.GRAVITY
-            buoyancy_old = float_model.calculate_buoyancy()
-            net_down_old = gravity_on_float + tippet_reaction_old[1] - buoyancy_old
-            force_along_old = -net_down_old * line_dir_old[1]
-            if force_along_old > 0:
-                constraint_force_old = line_dir_old * force_along_old
+        gravity_on_float = float_model.mass * config.GRAVITY
 
-        # Phase 3: 魚の力（吸い込み、サワリ）はハリス張力を通じて正しく伝達
+        # 旧拘束力
+        constraint_force_old = _calculate_line_constraint_force(
+            float_model.position, tip_pos_old, max_line_dist,
+            gravity_on_float, float_model.calculate_buoyancy(), tippet_reaction_old[1],
+        )
+
+        # ウキ位置更新（ハリス張力を通じて魚の力が伝達）
         float_model.update_position(dt, tension_old - tippet_reaction_old + constraint_force_old, tippet_tension_vertical_old)
 
         # Pass 2: 新位置で外力を再計算し、速度を平均加速度で更新
@@ -382,30 +409,19 @@ def main():
         tippet_reaction_new = bait.update_velocity(dt, float_pos_new, fish_accel, fish_force_on_bait_new)
 
         # Pass 2.3: ウキの速度更新（新外力を使用）
-        # 魚の外力は既に計算済み（魚自体はオイラー法なので再計算不要）
-        # 注意: Phase 2で魚もシンプレクティック化する予定
-
         # 新拘束力
-        line_diff_new = float_model.position - tip_pos_new
-        line_dist_new = np.linalg.norm(line_diff_new)
-        constraint_force_new = np.array([0.0, 0.0])
-        if line_dist_new > max_line_dist - 0.001 and line_dist_new > 1e-6:
-            line_dir_new = line_diff_new / line_dist_new
-            buoyancy_new = float_model.calculate_buoyancy()
-            net_down_new = gravity_on_float + tippet_reaction_new[1] - buoyancy_new
-            force_along_new = -net_down_new * line_dir_new[1]
-            if force_along_new > 0:
-                constraint_force_new = line_dir_new * force_along_new
+        constraint_force_new = _calculate_line_constraint_force(
+            float_model.position, tip_pos_new, max_line_dist,
+            gravity_on_float, float_model.calculate_buoyancy(), tippet_reaction_new[1],
+        )
 
-        # ハリス張力（鉛直成分）を計算（エサの重さがウキを立たせる力）
-        # tippet_reaction_new は [Fx, Fy] で、Fy > 0 は上向き（エサがウキから受ける力）
+        # ハリス張力（鉛直成分）: エサの重さがウキを立たせる力
         tippet_tension_vertical = abs(tippet_reaction_new[1])
 
-        # Phase 3: 魚の力（吸い込み、サワリ）はハリス張力を通じて正しく伝達
+        # ウキ速度更新（ハリス張力を通じて魚の力が伝達）
         float_model.update_velocity(dt, tension_new - tippet_reaction_new + constraint_force_new, tippet_tension_vertical)
 
-        # 着水判定と速度減衰（段階的減衰版、utils.pyから関数化）
-        # Fix 3: コード重複解消（44行 → 6行に削減）
+        # 着水時の速度減衰（段階的減衰）
         float_model.velocity = apply_water_entry_damping(
             float_model.position,
             float_model.velocity,

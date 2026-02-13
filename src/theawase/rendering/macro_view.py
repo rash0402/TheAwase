@@ -1,8 +1,10 @@
 """マクロビュー レンダラー"""
 
+import numpy as np
 import pygame
 from theawase import config
 from theawase.physics.float_model import FloatModel
+from theawase.physics.utils import rotate_point
 
 
 def safe_rect(x, y, w, h):
@@ -69,78 +71,46 @@ class MacroViewRenderer:
     def _draw_float(self, screen, view_rect, float_model, water_line_y):
         """ウキを描画（物理位置に基づく、角度対応）"""
         float_pos = float_model.get_position()
-        # 物理パラメータの取得
-        top_len_m = float_model.top_length
-        body_len_m = float_model.body_length
-        top_rad_m = float_model.top_radius
-        body_rad_m = float_model.body_radius
 
         # ピクセルサイズ変換
-        top_len_px = int(top_len_m * self.scale)
-        body_len_px = int(body_len_m * self.scale)
-        top_width_px = max(2, int(top_rad_m * 2 * self.scale))
-        body_width_px = max(4, int(body_rad_m * 2 * self.scale))
+        top_len_px = int(float_model.top_length * self.scale)
+        body_len_px = int(float_model.body_length * self.scale)
+        top_width_px = max(2, int(float_model.top_radius * 2 * self.scale))
+        body_width_px = max(4, int(float_model.body_radius * 2 * self.scale))
 
-        # ウキ座標計算（先端位置）
-        # position[1]: y=0が水面、正が上（空中）、負が下（水中）
-        # 水面線（固定）から物理位置分だけオフセット
+        # ウキ座標計算（先端位置: 水面線から物理位置分だけオフセット）
         uki_tip_y = water_line_y - float(float_pos[1]) * self.scale
         uki_x = view_rect.centerx
-        # ウキ全体のサイズ
+
         total_width = max(top_width_px, body_width_px) + 4  # マージン
         total_height = top_len_px + body_len_px
 
         # 一時Surfaceにウキを描画（回転前）
         float_surf = pygame.Surface((total_width, total_height), pygame.SRCALPHA)
 
-        # トップ描画（Surfaceに対して）
+        # トップ描画
         top_x_offset = (total_width - top_width_px) // 2
         self._draw_top_to_surface(float_surf, top_x_offset, 0, top_width_px, top_len_px)
 
-        # ボディ描画（Surfaceに対して）
+        # ボディ描画
         body_x_offset = (total_width - body_width_px) // 2
-        body_y_offset = top_len_px
-        body_rect = safe_rect(body_x_offset, body_y_offset, body_width_px, body_len_px)
+        body_rect = safe_rect(body_x_offset, top_len_px, body_width_px, body_len_px)
         pygame.draw.ellipse(float_surf, (60, 40, 60), body_rect)
 
         # 角度を取得して回転
-        import numpy as np
         angle_deg = np.degrees(float_model.angle)
-        rotated_surf = pygame.transform.rotate(float_surf, -angle_deg)  # 負の角度で時計回り
+        rotated_surf = pygame.transform.rotate(float_surf, -angle_deg)
 
-        # 回転の中心をトップ先端（糸の接続点）に設定
-        # 元のSurfaceでの先端位置（上端中央）
-        orig_tip_x = total_width // 2
-        orig_tip_y = 0
+        # 先端を回転中心にして配置（rotate_point ユーティリティ使用）
+        offset_y = -(total_height / 2)  # 先端は上端中央
+        rot_x, rot_y = rotate_point(0, offset_y, np.radians(-angle_deg))
 
-        # 元のSurfaceの中心
-        orig_center_x = total_width // 2
-        orig_center_y = total_height // 2
-
-        # 先端の中心からのオフセット
-        offset_x = orig_tip_x - orig_center_x  # = 0
-        offset_y = orig_tip_y - orig_center_y  # = -total_height/2
-
-        # 回転後のオフセット（回転行列適用）
-        angle_rad = np.radians(-angle_deg)
-        cos_a = np.cos(angle_rad)
-        sin_a = np.sin(angle_rad)
-
-        rotated_offset_x = offset_x * cos_a - offset_y * sin_a
-        rotated_offset_y = offset_x * sin_a + offset_y * cos_a
-
-        # 回転後のSurfaceの中心
         rotated_rect = rotated_surf.get_rect()
-        rotated_center_x = rotated_rect.width // 2
-        rotated_center_y = rotated_rect.height // 2
+        tip_x = rotated_rect.width // 2 + rot_x
+        tip_y = rotated_rect.height // 2 + rot_y
 
-        # 回転後の先端位置（Surface座標）
-        tip_in_rotated_x = rotated_center_x + rotated_offset_x
-        tip_in_rotated_y = rotated_center_y + rotated_offset_y
-
-        # スクリーン上での描画位置（先端がuki_x, uki_tip_yに来るように）
-        blit_x = int(uki_x - tip_in_rotated_x)
-        blit_y = int(uki_tip_y - tip_in_rotated_y)
+        blit_x = int(uki_x - tip_x)
+        blit_y = int(uki_tip_y - tip_y)
         screen.blit(rotated_surf, (blit_x, blit_y))
 
     def _draw_top_to_surface(self, surface, x_offset, y_offset, top_width_px, top_len_px):
@@ -211,7 +181,9 @@ class MacroViewRenderer:
         """アワセ結果を表示"""
         font = self.font_loader(48)
         result_text = game_state['last_result']
-        result_color = (50, 200, 50) if 'HIT' in result_text else (200, 50, 50)
+        # 成功系メッセージは緑、失敗系は赤
+        is_success = any(keyword in result_text for keyword in ('EXCELLENT', 'PERFECT', 'GOOD'))
+        result_color = (50, 200, 50) if is_success else (200, 50, 50)
         text_surface = font.render(result_text, True, result_color)
         screen.blit(text_surface, (int(view_rect.centerx - 50),
                                     int(view_rect.top + 50)))

@@ -10,7 +10,6 @@ Phase 3: ゲームフィードバック強化
 
 import pygame
 import numpy as np
-from typing import List, Dict
 
 class TimingGraphRenderer:
     """
@@ -44,7 +43,7 @@ class TimingGraphRenderer:
         self.axis_color = (150, 150, 150)
         self.zero_line_color = (200, 200, 200)
 
-    def render(self, surface: pygame.Surface, awase_history: List[Dict]):
+    def render(self, surface: pygame.Surface, awase_history: list[dict]):
         """
         グラフを描画
 
@@ -73,7 +72,7 @@ class TimingGraphRenderer:
             # 履歴がない場合はメッセージを表示
             try:
                 font = pygame.font.Font(None, 24)
-            except:
+            except Exception:
                 font = pygame.font.SysFont('Hiragino Sans', 24)
             message = font.render("Awaiting Awase...", True, (150, 150, 150))
             text_rect = message.get_rect(center=(self.size[0] // 2, self.size[1] // 2))
@@ -86,7 +85,7 @@ class TimingGraphRenderer:
         """グリッド線を描画"""
         width, height = self.size
 
-        # 水平グリッド（±500ms, ±250ms, 0ms）
+        # 水平グリッド（-500ms, -250ms, 0ms, +250ms, +500ms）
         for ms in [-500, -250, 0, 250, 500]:
             y = self._timing_to_y(ms)
             if ms == 0:
@@ -98,13 +97,11 @@ class TimingGraphRenderer:
             pygame.draw.line(surface, color, (0, y), (width, y), thickness)
 
         # 垂直グリッド（5試行ごと）
-        if len(self._get_sample_indices()) > 1:
-            for i in range(0, self.max_samples, 5):
-                if i < len(self._get_sample_indices()):
-                    x = self._index_to_x(i, len(self._get_sample_indices()))
-                    pygame.draw.line(surface, self.grid_color, (x, 0), (x, height), 1)
+        for i in range(0, self.max_samples, 5):
+            x = self._index_to_x(i, self.max_samples)
+            pygame.draw.line(surface, self.grid_color, (x, 0), (x, height), 1)
 
-    def _draw_data_points(self, surface: pygame.Surface, data: List[Dict]):
+    def _draw_data_points(self, surface: pygame.Surface, data: list[dict]):
         """データポイントとライン描画"""
         if len(data) < 1:
             return
@@ -129,7 +126,7 @@ class TimingGraphRenderer:
         if len(points) > 1:
             pygame.draw.lines(surface, (100, 100, 100), False, points, 2)
 
-    def _get_color_from_record(self, record: Dict) -> tuple[int, int, int]:
+    def _get_color_from_record(self, record: dict) -> tuple[int, int, int]:
         """
         レコードから色を決定
 
@@ -153,7 +150,7 @@ class TimingGraphRenderer:
         """軸ラベル描画"""
         try:
             font = pygame.font.Font(None, 20)
-        except:
+        except Exception:
             font = pygame.font.SysFont('Hiragino Sans', 20)
 
         # Y軸ラベル
@@ -166,7 +163,7 @@ class TimingGraphRenderer:
         # X軸ラベル（タイトル）
         try:
             title_font = pygame.font.Font(None, 24)
-        except:
+        except Exception:
             title_font = pygame.font.SysFont('Hiragino Sans', 24)
         x_label = title_font.render("Awase Timing", True, (200, 200, 200))
         surface.blit(x_label, (self.size[0] // 2 - 50, self.size[1] - 25))
@@ -196,6 +193,4 @@ class TimingGraphRenderer:
             return width // 2
         return int((index / (total_count - 1)) * width)
 
-    def _get_sample_indices(self) -> range:
-        """サンプルインデックスの範囲を返す"""
-        return range(self.max_samples)
+

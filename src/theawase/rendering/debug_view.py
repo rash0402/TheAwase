@@ -8,16 +8,8 @@ from theawase.physics.line import LineModel
 from theawase.physics.float_model import FloatModel
 from theawase.physics.bait import BaitModel
 from theawase.entities.fish import FishAI, FishState
+from theawase.physics.utils import rotate_point
 from theawase.rendering.timing_graph import TimingGraphRenderer
-
-
-# 魚の状態名（日本語）
-_FISH_STATE_NAMES = {
-    FishState.IDLE: "待機",
-    FishState.APPROACH: "接近",
-    FishState.ATTACK: "吸込み",
-    FishState.COOLDOWN: "警戒",
-}
 
 
 class DebugViewRenderer:
@@ -99,7 +91,7 @@ class DebugViewRenderer:
             if fish.state == FishState.ATTACK:
                 pygame.draw.circle(screen, (255, 100, 100), fish_screen,
                                    int(fish.suck_strength * 10), 1)
-            state_jp = _FISH_STATE_NAMES.get(fish.state, "?")
+            state_jp = config.FISH_STATE_NAMES_JP.get(fish.state.name, "?")
             self._draw_label(screen, font, f"魚{i+1} [{state_jp}]", fish_screen, fish_color, (30, -8))
 
         # 手元位置
@@ -146,42 +138,21 @@ class DebugViewRenderer:
         float_surf = pygame.Surface((float_width, float_height), pygame.SRCALPHA)
         pygame.draw.ellipse(float_surf, (255, 50, 50), (0, 0, float_width, float_height))
 
-        # 角度を度に変換（pygameは度を使用）
         angle_deg = np.degrees(float_model.angle)
-        rotated_surf = pygame.transform.rotate(float_surf, -angle_deg)  # 負の角度で時計回り
+        rotated_surf = pygame.transform.rotate(float_surf, -angle_deg)
 
-        # 回転の中心をトップ先端（糸の接続点）に設定
-        # 元のSurfaceでの先端位置（上端中央）
-        orig_tip_x = float_width // 2
-        orig_tip_y = 0
-        orig_center_x = float_width // 2
-        orig_center_y = float_height // 2
+        # 先端の中心からのオフセット（先端=上端中央）
+        offset_y = -(float_height / 2)  # offset_x = 0
+        rot_x, rot_y = rotate_point(0, offset_y, np.radians(-angle_deg))
 
-        # 先端の中心からのオフセット
-        offset_x = orig_tip_x - orig_center_x  # = 0
-        offset_y = orig_tip_y - orig_center_y  # = -float_height/2
-
-        # 回転後のオフセット（回転行列適用）
-        angle_rad = np.radians(-angle_deg)
-        cos_a = np.cos(angle_rad)
-        sin_a = np.sin(angle_rad)
-
-        rotated_offset_x = offset_x * cos_a - offset_y * sin_a
-        rotated_offset_y = offset_x * sin_a + offset_y * cos_a
-
-        # 回転後のSurfaceの中心
+        # 回転後のSurface中心を基準に先端位置を計算
         rotated_rect = rotated_surf.get_rect()
-        rotated_center_x = rotated_rect.width // 2
-        rotated_center_y = rotated_rect.height // 2
+        tip_x = rotated_rect.width // 2 + rot_x
+        tip_y = rotated_rect.height // 2 + rot_y
 
-        # 回転後の先端位置（Surface座標）
-        tip_in_rotated_x = rotated_center_x + rotated_offset_x
-        tip_in_rotated_y = rotated_center_y + rotated_offset_y
-
-        # スクリーン上での描画位置（先端がfloat_screenに来るように）
-        blit_x = int(float_screen[0] - tip_in_rotated_x)
-        blit_y = int(float_screen[1] - tip_in_rotated_y)
-
+        # 先端がfloat_screenに来るように配置
+        blit_x = int(float_screen[0] - tip_x)
+        blit_y = int(float_screen[1] - tip_y)
         screen.blit(rotated_surf, (blit_x, blit_y))
 
         self._draw_label(screen, font, f"ウキ({angle_deg:.0f}°)", float_screen, (255, 80, 80), (-36, 10))

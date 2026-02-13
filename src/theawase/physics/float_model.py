@@ -3,6 +3,7 @@
 import numpy as np
 from theawase import config
 from theawase.physics.integrator import verlet_integrate, verlet_integrate_symplectic
+from theawase.physics.utils import clamp_acceleration
 
 
 class FloatModel:
@@ -109,16 +110,14 @@ class FloatModel:
         speed = np.linalg.norm(self.velocity)
 
         # 速度制限（発散防止）
-        max_speed = 100.0
-        if speed > max_speed:
-            self.velocity = (self.velocity / speed) * max_speed
-            speed = max_speed
+        if speed > config.MAX_SPEED:
+            self.velocity = (self.velocity / speed) * config.MAX_SPEED
+            speed = config.MAX_SPEED
 
         if speed < 1e-6:
             return np.array([0.0, 0.0])
 
         # 抵抗力（速度の二乗に比例）
-        # speedが巨大だとここでオーバーフローするため制限が必須
         drag_magnitude = self.drag_coefficient * speed**2
         drag_direction = -self.velocity / speed
 
@@ -141,23 +140,11 @@ class FloatModel:
         buoyancy = self.calculate_buoyancy()
         buoyancy_force = np.array([0.0, buoyancy])
 
-        # 合力（抵抗・メニスカスは後処理で適用）
+        # 合力 → 加速度（抵抗・メニスカスは後処理で適用）
         total_force = gravity_force + buoyancy_force + external_force
-
-        # 加速度
         acceleration = total_force / self.mass
 
-        # 加速度制限（物理発散防止）
-        max_acceleration = 1000.0  # m/s^2
-        acc_magnitude = np.linalg.norm(acceleration)
-        if acc_magnitude > max_acceleration:
-            acceleration = (acceleration / acc_magnitude) * max_acceleration
-
-        # NaN チェック
-        if not np.all(np.isfinite(acceleration)):
-            acceleration = np.array([0.0, 0.0])
-
-        return acceleration
+        return clamp_acceleration(acceleration, config.MAX_ACCELERATION)
 
     def _apply_damping(self, dt: float):
         """
@@ -254,16 +241,8 @@ class FloatModel:
         alpha_new = self._calculate_angular_acceleration(tippet_tension)
         self.angular_velocity += alpha_new * dt
 
-        # 角速度制限（発散防止）
-        max_angular_velocity = 10.0  # rad/s
-        if abs(self.angular_velocity) > max_angular_velocity:
-            self.angular_velocity = np.sign(self.angular_velocity) * max_angular_velocity
-
-        # 角度を [-π, π] に正規化
-        if np.isfinite(self.angle):
-            self.angle = np.arctan2(np.sin(self.angle), np.cos(self.angle))
-        else:
-            self.angle = 0.0
+        # 角速度・角度の安全ガード
+        self._clamp_angular_state()
 
         self._use_symplectic = False
 
@@ -315,9 +294,8 @@ class FloatModel:
         alpha = (total_torque + damping_torque) / I
 
         # 角加速度制限（発散防止）
-        max_angular_acceleration = 50.0  # rad/s²
-        if abs(alpha) > max_angular_acceleration:
-            alpha = np.sign(alpha) * max_angular_acceleration
+        if abs(alpha) > config.MAX_ANGULAR_ACCELERATION:
+            alpha = np.sign(alpha) * config.MAX_ANGULAR_ACCELERATION
 
         return alpha
 
@@ -354,12 +332,14 @@ class FloatModel:
         alpha = self._calculate_angular_acceleration(tippet_tension)
         self.angular_velocity += alpha * dt
 
-        # 角速度制限
-        max_angular_velocity = 10.0
-        if abs(self.angular_velocity) > max_angular_velocity:
-            self.angular_velocity = np.sign(self.angular_velocity) * max_angular_velocity
+        # 角速度・角度の安全ガード
+        self._clamp_angular_state()
 
-        # 角度正規化
+    def _clamp_angular_state(self):
+        """角速度と角度の安全ガード（共通処理）"""
+        if abs(self.angular_velocity) > config.MAX_ANGULAR_VELOCITY:
+            self.angular_velocity = np.sign(self.angular_velocity) * config.MAX_ANGULAR_VELOCITY
+
         if np.isfinite(self.angle):
             self.angle = np.arctan2(np.sin(self.angle), np.cos(self.angle))
         else:
