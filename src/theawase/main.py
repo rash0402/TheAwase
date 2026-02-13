@@ -9,6 +9,7 @@ from theawase.physics.rod import RodModel
 from theawase.physics.line import LineModel
 from theawase.physics.float_model import FloatModel
 from theawase.physics.bait import BaitModel
+from theawase.physics.utils import apply_water_entry_damping
 from theawase.entities.fish import FishAI, FishState, BiteType
 from theawase.input.trackpad import TrackpadInput
 from theawase.rendering.macro_view import MacroViewRenderer
@@ -305,11 +306,8 @@ def main():
         rod.set_hand_position(hand_pos)
 
         # Pass 1.1: 竿の位置更新
-        # 投入中判定（ウキのトップ半分が水中に入るまでは道糸を弛める）
-        if float_model.position[1] > float_model.top_length * 0.5:
-            tension_old = np.array([0.0, 0.0])  # 投入中は張力ゼロ
-        else:
-            tension_old = line.calculate_tension(rod.get_tip_position(), float_model.get_position())
+        # 道糸張力を計算
+        tension_old = line.calculate_tension(rod.get_tip_position(), float_model.get_position())
         rod.update_position(dt, -tension_old)
 
         # Pass 1.2: エサの位置更新（魚の力を適用）
@@ -319,7 +317,8 @@ def main():
             fish_force_on_bait += fish.get_suck_force(bait.position)
             fish_force_on_bait += fish.get_disturbance_force()
 
-        bait.update_position(dt, fish_force_on_bait)
+        # Fix 1: float_position引数を追加（バネ力をPhase 1でも適用）
+        bait.update_position(dt, fish_force_on_bait, float_model.get_position())
 
         # Pass 1.3: ウキの位置更新（旧外力を使用）
         # 魚の更新（位置のみ更新、外力計算は後）
@@ -336,17 +335,8 @@ def main():
         # Phase 3: 魚の力（吸い込み、サワリ）は bait に作用し、ハリス張力を通じてウキに伝達される
         # （直接力は物理的に不正確なため削除）
 
-        # 旧ハリス張力（エサの旧位置での簡易計算: 角度依存性を含む）
-        diff_old = bait.position - float_model.position
-        dist_old = np.linalg.norm(diff_old)
-
-        if dist_old > 1e-6:
-            n_hat_old = diff_old / dist_old
-            T_mag_old = bait.mass * config.GRAVITY
-            tippet_reaction_old = -T_mag_old * n_hat_old  # エサに作用する力
-        else:
-            tippet_reaction_old = np.array([0.0, bait.mass * config.GRAVITY])
-
+        # 旧ハリス張力（エサの旧位置での簡易計算: 垂直方向のみ）
+        tippet_reaction_old = np.array([0.0, bait.mass * config.GRAVITY])
         tippet_tension_vertical_old = abs(tippet_reaction_old[1])
 
         # 旧拘束力
@@ -371,11 +361,8 @@ def main():
         # Pass 2.1: 竿の速度更新
         tip_pos_new = rod.get_tip_position()
         float_pos_new = float_model.get_position()
-        # 投入中判定（ウキのトップ半分が水中に入るまでは道糸を弛める）
-        if float_model.position[1] > float_model.top_length * 0.5:
-            tension_new = np.array([0.0, 0.0])  # 投入中は張力ゼロ
-        else:
-            tension_new = line.calculate_tension(tip_pos_new, float_pos_new)
+        # 道糸張力を計算
+        tension_new = line.calculate_tension(tip_pos_new, float_pos_new)
         rod.update_velocity(dt, -tension_new)
 
         # Pass 2.2: エサの速度更新とハリス張力計算
@@ -417,14 +404,21 @@ def main():
         # Phase 3: 魚の力（吸い込み、サワリ）はハリス張力を通じて正しく伝達
         float_model.update_velocity(dt, tension_new - tippet_reaction_new + constraint_force_new, tippet_tension_vertical)
 
-        # 着水判定と速度減衰（ウキ）
-        # 水面付近（±1cm）で下向き速度がある場合、着水として速度を減衰
-        if abs(float_model.position[1]) < 0.01 and float_model.velocity[1] < 0:
-            float_model.velocity[1] *= config.WATER_ENTRY_DAMPING
+        # 着水判定と速度減衰（段階的減衰版、utils.pyから関数化）
+        # Fix 3: コード重複解消（44行 → 6行に削減）
+        float_model.velocity = apply_water_entry_damping(
+            float_model.position,
+            float_model.velocity,
+            config.WATER_ENTRY_DAMPING,
+            config.WATER_ENTRY_ZONE
+        )
 
-        # 着水判定と速度減衰（エサ）
-        if abs(bait.position[1]) < 0.01 and bait.velocity[1] < 0:
-            bait.velocity[1] *= config.WATER_ENTRY_DAMPING
+        bait.velocity = apply_water_entry_damping(
+            bait.position,
+            bait.velocity,
+            config.WATER_ENTRY_DAMPING,
+            config.WATER_ENTRY_ZONE
+        )
 
         # 位置拘束（後処理）投入中はスキップ
         if float_model.position[1] <= float_model.top_length * 0.5:

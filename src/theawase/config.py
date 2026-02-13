@@ -15,7 +15,7 @@ ROD_DAMPING = 3.0     # Ns/m (Verlet統合後の最適値)
 
 # 道糸パラメータ
 LINE_STIFFNESS = 100.0   # N/m
-LINE_REST_LENGTH = 1.5   # m (張力ゼロの基準長: 竿先〜ウキ間、実釣に即した値)
+LINE_REST_LENGTH = 0.6   # m (張力ゼロの基準長: 竿先〜ウキ間、実釣に即した値、1.5m→0.6mに変更)
 LINE_MAX_STRETCH = 0.3   # m (道糸の最大伸長許容値)
 
 # ウキパラメータ
@@ -30,7 +30,7 @@ FLOAT_ROTATIONAL_VISCOSITY = 0.0005  # N·m·s 回転粘性減衰係数（5倍�
 
 # ハリスパラメータ
 TIPPET_LENGTH = 0.45      # m (45cm: ウキ→エサ間距離、魚の深度に合わせて調整)
-TIPPET_STIFFNESS = 50.0   # N/m
+TIPPET_STIFFNESS = 20.0   # N/m (Fix 2: 50.0→20.0、ナイロン0.4号の実測値に合わせて実釣感覚を改善)
 
 # カラー定義
 COLOR_WATER = (64, 128, 192)
@@ -70,3 +70,4 @@ MAX_FISH_ACCEL = 50.0       # m/s² (魚の加速度上限、安全ガード)
 FLOAT_INITIAL_Y = 0.30           # m (ウキ初期位置: 水面から30cm上、空中から落下)
 FLOAT_INITIAL_VELOCITY_Y = 0.0   # m/s (初期速度: ゼロ、頂点から落下開始)
 WATER_ENTRY_DAMPING = 0.3        # 着水時の速度減衰係数（水面衝突で速度が70%減衰）
+WATER_ENTRY_ZONE = 0.10          # m (±10cm range for gradual damping)

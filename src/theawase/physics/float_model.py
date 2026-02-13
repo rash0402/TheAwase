@@ -42,8 +42,8 @@ class FloatModel:
         self.angle = 0.0  # rad (0=直立, π/2=水平/倒れた状態)
         self.angular_velocity = 0.0  # rad/s (将来の物理ベース版用に予約)
 
-        # 抵抗係数
-        self.drag_coefficient = 0.5
+        # 抵抗係数（バランス調整: 0.5 → 1.5 → 1.0、適度な抵抗）
+        self.drag_coefficient = 1.0
 
         # シンプレクティック積分用の内部変数
         self._acceleration_old = np.array([0.0, 0.0])
@@ -185,10 +185,10 @@ class FloatModel:
         body_top_y = self.position[1] - self.top_length
 
         if body_top_y < 0.0:
-            # 異方性減衰: ウキは縦長なので、横方向の抵抗は大きく、縦方向は小さい
-            # 達人推奨: 横方向抵抗を大幅増強（実測により 0.3 → 1.2 に調整）
-            damping_x = 1.2     # 横方向: 超強力ブレーキ（0.1 → 0.3 → 1.2 に段階的増強）
-            damping_y = 0.008   # 縦方向: 感度を適度に抑える
+            # 異方性減衰: ウキは縦長なので、横方向の抵抗は大きく、縦方向は圧倒的に小さい
+            # 横ブレを抑えつつ、上下方向は極めて敏感に（流体力学的に正確）
+            damping_x = 2.2      # 横方向: 強力なブレーキ（断面積大）
+            damping_y = 0.001    # 縦方向: 極小抵抗（流線型、0.008 → 0.001、2200倍の差）
 
             factor_x = 1.0 / (1.0 + damping_x * dt / self.mass)
             factor_y = 1.0 / (1.0 + damping_y * dt / self.mass)

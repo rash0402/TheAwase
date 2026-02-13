@@ -37,8 +37,9 @@ class BaitModel:
         self.position = np.array([0.0, 0.0])
         self.velocity = np.array([0.0, 0.0])
 
-        # 水中抵抗（小型で軽いエサは抵抗少）
-        self.drag_coefficient = 0.1
+        # 水中抵抗（魚の吸い込み力に耐えるため極めて強力に設定）
+        # 0.1 → 0.8 → 2.5 → 1.5 → 5.0: 魚のATTACKでも飛ばない強力な抵抗
+        self.drag_coefficient = 5.0
 
         # 匂いパーティクル（位置リスト）
         self.particles: list[np.ndarray] = []
@@ -56,6 +57,40 @@ class BaitModel:
         # 重力加速度
         return np.array([0.0, -config.GRAVITY])
 
+    def _calculate_spring_force(self, float_position: np.ndarray) -> np.ndarray:
+        """
+        ハリスバネ力を計算（Phase 1と2で共有）
+
+        Fix 1: シンプレクティック積分のため、バネ力を両フェーズで適用
+
+        Args:
+            float_position: ウキの現在位置 [x, y] (m)
+
+        Returns:
+            np.ndarray: バネ力ベクトル [Fx, Fy] (N)
+                        エサがウキ方向に引かれる力
+        """
+        if float_position is None:
+            return np.array([0.0, 0.0])
+
+        # ハリスの伸びを計算
+        diff = self.position - float_position
+        dist = np.linalg.norm(diff)
+
+        # 退化ケース: 距離がほぼゼロ、またはハリスが伸びていない場合
+        if dist < 1e-6 or dist <= self.tippet_length:
+            return np.array([0.0, 0.0])
+
+        # 単位方向ベクトル（エサ→ウキ方向）
+        n_hat = diff / dist
+
+        # バネ力の大きさ: F = k * Δx
+        extension = dist - self.tippet_length
+        spring_force_magnitude = self.tippet_stiffness * extension
+
+        # バネ力ベクトル（ウキ方向への引力 = 負の方向）
+        return -spring_force_magnitude * n_hat
+
     def _apply_mass_loss(self, dt: float):
         """質量減少とパーティクル放出を適用"""
         # 最小質量（ゼロ除算防止: バラケ切っても針の重さが残る）
@@ -69,7 +104,7 @@ class BaitModel:
         # 質量減少
         velocity_factor = np.linalg.norm(self.velocity) ** 2
         mass_loss = (self.dissolution_rate + 0.002 * velocity_factor) * dt
-        self.mass = max(0.0, self.mass - mass_loss)
+        self.mass = max(MIN_MASS, self.mass - mass_loss)  # MIN_MASSを下回らない
 
         # パーティクル生成（確率的）
         if np.random.random() < self.diffusion_rate * dt:
@@ -117,25 +152,20 @@ class BaitModel:
     def _calculate_tippet_tension_vector(self, float_position: np.ndarray,
                                         fish_acceleration: np.ndarray) -> np.ndarray:
         """
-        ハリス張力を2次元ベクトルとして計算（Phase 3改良版: 角度依存性追加）
+        ハリス張力を2次元ベクトルとして計算
 
-        仕様:
-            T_magnitude = m_bait · (g - a_fish[y])  # Phase 3式を保持
-            T_vector = -T_magnitude · n̂            # n̂: ウキ→エサ方向の単位ベクトル
-
-        物理的意味:
-            - ハリスが角度θを成すとき、張力は横成分 T_x = T·sin(θ) を持つ
-            - ウキとエサは横方向に相互作用（ウキの強い横抵抗がエサを引き戻す）
+        Fix 1: バネ力計算を _calculate_spring_force() に移譲（重複排除）
+        ただし、元の挙動（張力の大きさをハリス方向に適用）を維持
 
         Args:
             float_position: ウキの現在位置 [x, y] (m)
             fish_acceleration: 魚の加速度ベクトル [ax, ay] (m/s²)
 
         Returns:
-            np.ndarray: ハリス張力ベクトル [T_x, T_y] (N)
-                        エサがウキから受ける力（ウキ方向への引き）
+            np.ndarray: ハリス張力ベクトル [Tx, Ty] (N)
+                        ウキがエサから受ける力（Newton第3法則の反作用）
         """
-        # 1. 張力の大きさ（Phase 3式を保持）
+        # 1. 重力ベースの張力の大きさ（魚の加速度による補正含む）
         a_fish_y = fish_acceleration[1]
         T_magnitude = self.mass * (config.GRAVITY - a_fish_y)
 
@@ -144,47 +174,56 @@ class BaitModel:
             T_magnitude = self.mass * abs(config.GRAVITY)
 
         # 2. ハリスの方向を計算
-        diff = self.position - float_position  # ウキ→エサベクトル
+        diff = self.position - float_position
         dist = np.linalg.norm(diff)
 
+        # 退化ケース: 距離がほぼゼロの場合
         if dist < 1e-6:
-            # 退化ケース: 鉛直方向にフォールバック
             return np.array([0.0, T_magnitude])
 
-        n_hat = diff / dist  # 単位ベクトル
+        n_hat = diff / dist  # 単位方向ベクトル（エサ→ウキ方向）
 
-        # 3. 張力ベクトル（エサがウキから受ける力 = ウキ方向への引き）
+        # 3. Fix 1: バネ力の大きさを取得（_calculate_spring_force()を再利用）
+        # ただし、ここではスカラー値として扱う（元の挙動維持のため）
+        if dist > self.tippet_length:
+            extension = dist - self.tippet_length
+            spring_magnitude = self.tippet_stiffness * extension
+            T_magnitude += spring_magnitude
+
+        # 4. 張力ベクトル（エサがウキから受ける力 = ウキ方向への引力）
         tippet_tension = -T_magnitude * n_hat
-
-        # 4. 安全ガード: 横方向力を制限（極端な角度での発散防止）
-        if hasattr(config, 'TIPPET_LATERAL_FORCE_LIMIT'):
-            max_lateral = T_magnitude * config.TIPPET_LATERAL_FORCE_LIMIT
-            if abs(tippet_tension[0]) > max_lateral:
-                tippet_tension[0] = np.sign(tippet_tension[0]) * max_lateral
 
         return tippet_tension
 
-    def update_position(self, dt: float, external_force: np.ndarray = None):
+    def update_position(self, dt: float, external_force: np.ndarray = None, float_position: np.ndarray = None):
         """
         Phase 1: 位置を旧加速度で更新（シンプレクティック積分の第1段階）
+
+        Fix 1: バネ力をPhase 1でも適用（シンプレクティック性の回復）
 
         Args:
             dt: 時間刻み
             external_force: 外力（魚の吸い込み力など）
+            float_position: ウキの現在位置（バネ力計算用、Fix 1で追加）
         """
         self._use_symplectic = True
 
         # 質量減少とパーティクル放出
         self._apply_mass_loss(dt)
 
-        # 旧加速度を計算して保存（重力 + 外力）
+        # 旧加速度を計算して保存（重力 + 外力 + バネ力）
         gravity_accel = self._calculate_acceleration()
+
         if external_force is not None:
             external_accel = external_force / self.mass
         else:
             external_accel = np.array([0.0, 0.0])
 
-        self._acceleration_old = gravity_accel + external_accel
+        # Fix 1: バネ力を追加（シンプレクティック積分のため）
+        spring_force = self._calculate_spring_force(float_position)
+        spring_accel = spring_force / self.mass
+
+        self._acceleration_old = gravity_accel + external_accel + spring_accel
 
         # 位置を更新（旧加速度を使用）
         self.position = self.position + self.velocity * dt + 0.5 * self._acceleration_old * dt**2
