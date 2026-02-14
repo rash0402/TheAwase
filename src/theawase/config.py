@@ -30,7 +30,7 @@ FLOAT_ROTATIONAL_VISCOSITY = 0.0005  # N·m·s 回転粘性減衰係数（5倍�
 
 # ハリスパラメータ
 TIPPET_LENGTH = 0.45      # m (45cm: ウキ→エサ間距離、魚の深度に合わせて調整)
-TIPPET_STIFFNESS = 20.0   # N/m (Fix 2: 50.0→20.0、ナイロン0.4号の実測値に合わせて実釣感覚を改善)
+TIPPET_STIFFNESS = 20.0   # N/m (元の値に戻す、剛性を上げても逆効果だった)
 
 # カラー定義
 COLOR_WATER = (64, 128, 192)
@@ -66,9 +66,9 @@ SUCK_FORCE_CUTOFF = 0.05    # m (5cm: この距離を超えると完全にゼロ
 FISH_MASS = 0.2             # kg (200g: ヘラブナの標準的な質量)
 MAX_FISH_ACCEL = 50.0       # m/s² (魚の加速度上限、安全ガード)
 
-# 初期位置設定（仕掛け投入: 空中から落下）
-FLOAT_INITIAL_Y = 0.30           # m (ウキ初期位置: 水面から30cm上、空中から落下)
-FLOAT_INITIAL_VELOCITY_Y = 0.0   # m/s (初期速度: ゼロ、頂点から落下開始)
+# 初期位置設定（安定した平衡点から開始）
+FLOAT_INITIAL_Y = 0.105          # m (ウキ初期位置: 理論平衡点105mm、質量2.3g時の正確な浮力バランス）
+FLOAT_INITIAL_VELOCITY_Y = 0.0   # m/s (初期速度: ゼロ)
 WATER_ENTRY_DAMPING = 0.3        # 着水時の速度減衰係数（水面衝突で速度が70%減衰）
 WATER_ENTRY_ZONE = 0.10          # m (±10cm range for gradual damping)
 

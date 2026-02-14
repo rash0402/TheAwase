@@ -222,34 +222,37 @@ class FishAI:
     def _calculate_suck_strength_3stage(self, t: float) -> float:
         """
         ツンの3段階モデル（実釣に即した急峻な立ち上がり）
-        
+
         Args:
             t: ATTACK開始からの経過時間 [s]
-        
+
         Returns:
-            吸い込み強度（無次元、0-5程度）
-        
+            吸い込み強度（無次元、0-1.5程度）
+
         時間区分:
             - 準備 (0-50ms): 口を開く、緩やかな立ち上がり
             - 爆発 (50-150ms): 鰓蓋を閉じて爆発的吸引、50msでピーク
             - 減衰 (150-300ms): 離脱開始、指数減衰
+
+        数値解析結果: 5.0では強すぎてエサが平均91mm移動
+        → 1.5に減衰（約1/3、「わずかに動く」を目指す）
         """
         if t < 0.05:
             # 準備段階: 口を開く（線形）
-            strength = 0.5 * (t / 0.05)
+            strength = 0.15 * (t / 0.05)  # 5.0→1.5に比例縮小
         elif t < 0.15:
             # 爆発段階: 爆発的吸引（ガウス型、σ=25ms）
             peak_time = 0.10  # 100ms = 50ms準備 + 50ms爆発
             width = 0.025     # 25ms（標準偏差）
-            strength = 5.0 * np.exp(-((t - peak_time) ** 2) / (2 * width ** 2))
+            strength = 1.5 * np.exp(-((t - peak_time) ** 2) / (2 * width ** 2))
         else:
             # 減衰段階: 離脱開始（指数減衰、τ=100ms）
             decay_start = 0.15
             decay_rate = 0.10  # 時定数100ms
-            strength = 5.0 * np.exp(-(t - decay_start) / decay_rate)
-        
-        # 上限キャップ: 数値発散防止（0.0-5.0の範囲に制限）
-        return np.clip(strength, 0.0, 5.0)
+            strength = 1.5 * np.exp(-(t - decay_start) / decay_rate)
+
+        # 上限キャップ: 数値発散防止（0.0-1.5の範囲に制限）
+        return np.clip(strength, 0.0, 1.5)
     
     def get_suck_force(self, target_position: np.ndarray) -> np.ndarray:
         """吸い込み力を計算（双極子型力場）"""

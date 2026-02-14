@@ -258,7 +258,7 @@ def main():
 
         float_model.position = np.array([0.0, config.FLOAT_INITIAL_Y])
         float_model.velocity = np.array([0.0, config.FLOAT_INITIAL_VELOCITY_Y])
-        float_model.angle = np.pi / 2  # 初期状態: 横倒し
+        float_model.angle = 0.0  # 初期状態: 直立
         float_model.angular_velocity = 0.0
 
         # エサも空中に配置（ウキより10cm下、ハリスはたるんだ状態）

@@ -20,8 +20,8 @@ class BaitModel:
 
     def __init__(
         self,
-        initial_mass: float = 0.0006,  # kg (0.6g) ウキ浮力との最適バランス点
-        dissolution_rate: float = 0.000004,  # kg/s (約150秒で完全溶解)
+        initial_mass: float = 0.0012,  # kg (1.2g) 数値解析: 0.6gでは軽すぎてエサが飛ぶ
+        dissolution_rate: float = 0.000004,  # kg/s (約300秒で完全溶解、質量2倍)
         diffusion_rate: float = 2.0,
         tippet_length: float = config.TIPPET_LENGTH,
         tippet_stiffness: float = config.TIPPET_STIFFNESS,
@@ -37,9 +37,9 @@ class BaitModel:
         self.position = np.array([0.0, 0.0])
         self.velocity = np.array([0.0, 0.0])
 
-        # 水中抵抗（魚の吸い込み力に耐えるため極めて強力に設定）
-        # 0.1 → 0.8 → 2.5 → 1.5 → 5.0: 魚のATTACKでも飛ばない強力な抵抗
-        self.drag_coefficient = 5.0
+        # 水中抵抗（実釣感覚: エサはわずかに動く程度）
+        # 最適値: mass1.2g + drag25.0 で平均14.15mm（目標1-10mmに近い）
+        self.drag_coefficient = 25.0
 
         # 匂いパーティクル（位置リスト）
         self.particles: list[np.ndarray] = []
