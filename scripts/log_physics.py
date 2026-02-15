@@ -41,16 +41,23 @@ def run_simulation(duration_sec: float = 60.0, output_csv: str = "physics_log.cs
     )
 
     # 初期位置設定（main.pyと同じ）
-    rod.hand_position = np.array([0.0, 0.50])
-    rod.tip_position = np.array([0.0, 0.50])
-    rod.tip_velocity = np.array([0.0, 0.0])
-
+    # ウキの初期位置
     float_model.position = np.array([0.0, config.FLOAT_INITIAL_Y])
     float_model.velocity = np.array([0.0, config.FLOAT_INITIAL_VELOCITY_Y])
-    float_model.angle = np.pi / 2
+    float_model.angle = 0.0  # 初期状態: 直立（main.pyと同じ）
     float_model.angular_velocity = 0.0
 
-    bait.position = np.array([0.0, config.FLOAT_INITIAL_Y - 0.10])
+    # 竿先をウキから道糸自然長分上に配置（張力ゼロ）
+    initial_rod_tip_y = config.FLOAT_INITIAL_Y + config.LINE_REST_LENGTH
+    rod.tip_position = np.array([0.0, initial_rod_tip_y])
+    rod.tip_velocity = np.array([0.0, 0.0])
+
+    # 手元は竿先と同じ位置（バネ力ゼロ）
+    rod.hand_position = np.array([0.0, initial_rod_tip_y])
+
+
+    # エサはウキからハリス長分下に配置（バネ力ゼロの自然長）
+    bait.position = np.array([0.0, config.FLOAT_INITIAL_Y - config.TIPPET_LENGTH])
     bait.velocity = np.array([0.0, 0.0])
 
     # CSVファイル準備
@@ -69,6 +76,8 @@ def run_simulation(duration_sec: float = 60.0, output_csv: str = "physics_log.cs
         'bait_vx', 'bait_vy',
         'bait_speed',
         'float_y', 'float_vy',
+        'rod_tip_y',
+        'line_length',
         'line_tension',
         'bait_mass_ratio',
     ])
@@ -83,9 +92,37 @@ def run_simulation(duration_sec: float = 60.0, output_csv: str = "physics_log.cs
     print(f"出力先: {csv_path}")
 
     while time < duration_sec:
+        # 事前計算（ログ出力用）
+        bait_mass_ratio = bait.get_mass_ratio()
+
+        # ログ出力（1フレームごと、デバッグ用）※Pass実行前の状態を記録
+        if frame_count < 20 or frame_count % 10 == 0:
+            fish_to_bait = np.linalg.norm(fish.position - bait.position)
+            bait_speed = np.linalg.norm(bait.velocity)
+            tip_pos = rod.get_tip_position()
+            line_vec = float_model.get_position() - tip_pos
+            line_len = np.linalg.norm(line_vec)
+            tension_current = line.calculate_tension(tip_pos, float_model.get_position())
+
+            csv_writer.writerow([
+                f"{time:.3f}",
+                fish.state.name,
+                f"{fish.position[0]:.6f}", f"{fish.position[1]:.6f}",
+                f"{fish.suck_strength:.6f}",
+                f"{fish_to_bait:.6f}",
+                f"{bait.position[0]:.6f}", f"{bait.position[1]:.6f}",
+                f"{bait.velocity[0]:.6f}", f"{bait.velocity[1]:.6f}",
+                f"{bait_speed:.6f}",
+                f"{float_model.position[1]:.6f}", f"{float_model.velocity[1]:.6f}",
+                f"{tip_pos[1]:.6f}",
+                f"{line_len:.6f}",
+                f"{np.linalg.norm(tension_current):.6f}",
+                f"{bait_mass_ratio:.6f}",
+            ])
+
         # Pass 1: 位置更新
-        hand_pos = np.array([0.0, 0.50 + config.HAND_Y_OFFSET])
-        rod.set_hand_position(hand_pos)
+        # 物理検証では手元を固定（初期位置のまま）
+        # hand_pos は初期化時に設定済み、動かさない
 
         tension_old = line.calculate_tension(rod.get_tip_position(), float_model.get_position())
         rod.update_position(dt, -tension_old)
@@ -95,7 +132,6 @@ def run_simulation(duration_sec: float = 60.0, output_csv: str = "physics_log.cs
         fish_accel = np.array([0.0, 0.0])
 
         particle_density = len([p for p in bait.particles if np.linalg.norm(p - fish.position) < 0.2]) / 100.0
-        bait_mass_ratio = bait.get_mass_ratio()
 
         fish.update(dt, bait.position, particle_density, bait_mass_ratio)
 
@@ -160,25 +196,6 @@ def run_simulation(duration_sec: float = 60.0, output_csv: str = "physics_log.cs
             config.WATER_ENTRY_DAMPING,
             config.WATER_ENTRY_ZONE
         )
-
-        # ログ出力（10フレームごと = 0.1秒ごと）
-        if frame_count % 10 == 0:
-            fish_to_bait = np.linalg.norm(fish.position - bait.position)
-            bait_speed = np.linalg.norm(bait.velocity)
-
-            csv_writer.writerow([
-                f"{time:.3f}",
-                fish.state.name,
-                f"{fish.position[0]:.6f}", f"{fish.position[1]:.6f}",
-                f"{fish.suck_strength:.6f}",
-                f"{fish_to_bait:.6f}",
-                f"{bait.position[0]:.6f}", f"{bait.position[1]:.6f}",
-                f"{bait.velocity[0]:.6f}", f"{bait.velocity[1]:.6f}",
-                f"{bait_speed:.6f}",
-                f"{float_model.position[1]:.6f}", f"{float_model.velocity[1]:.6f}",
-                f"{np.linalg.norm(tension_new):.6f}",
-                f"{bait_mass_ratio:.6f}",
-            ])
 
         # ATTACK状態のカウント
         if fish.state == FishState.ATTACK and frame_count % 100 == 0:

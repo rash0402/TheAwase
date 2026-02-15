@@ -252,17 +252,23 @@ def main():
     # 初期位置設定
     def reset_physics():
         # モデル再作成ではなく状態リセット
-        rod.hand_position = np.array([0.0, 0.50])
-        rod.tip_position = np.array([0.0, 0.50])
-        rod.tip_velocity = np.array([0.0, 0.0])
 
+        # ウキの初期位置
         float_model.position = np.array([0.0, config.FLOAT_INITIAL_Y])
         float_model.velocity = np.array([0.0, config.FLOAT_INITIAL_VELOCITY_Y])
         float_model.angle = 0.0  # 初期状態: 直立
         float_model.angular_velocity = 0.0
 
-        # エサも空中に配置（ウキより10cm下、ハリスはたるんだ状態）
-        bait.position = np.array([0.0, config.FLOAT_INITIAL_Y - 0.10])
+        # 竿先をウキから道糸自然長分上に配置（張力ゼロ）
+        initial_rod_tip_y = config.FLOAT_INITIAL_Y + config.LINE_REST_LENGTH
+        rod.tip_position = np.array([0.0, initial_rod_tip_y])
+        rod.tip_velocity = np.array([0.0, 0.0])
+
+        # 手元は竿先と同じ位置（バネ力ゼロ）
+        rod.hand_position = np.array([0.0, initial_rod_tip_y])
+
+        # エサはウキからハリス長分下に配置（バネ力ゼロの自然長）
+        bait.position = np.array([0.0, config.FLOAT_INITIAL_Y - config.TIPPET_LENGTH])
         bait.velocity = np.array([0.0, 0.0])
         bait.mass = bait.initial_mass # エサ復活
         

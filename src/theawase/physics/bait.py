@@ -248,14 +248,18 @@ class BaitModel:
         if fish_acceleration is None:
             fish_acceleration = np.array([0.0, 0.0])
 
-        # 新位置での加速度を計算（重力 + 外力）
+        # 新位置での加速度を計算（重力 + 外力 + バネ力）
         gravity_accel = self._calculate_acceleration()
         if external_force is not None:
             external_accel = external_force / self.mass
         else:
             external_accel = np.array([0.0, 0.0])
 
-        acceleration_new = gravity_accel + external_accel
+        # バネ力を追加（シンプレクティック積分のため、update_position()と同様）
+        spring_force = self._calculate_spring_force(float_position)
+        spring_accel = spring_force / self.mass
+
+        acceleration_new = gravity_accel + external_accel + spring_accel
 
         # 速度を更新（平均加速度を使用: シンプレクティック性の鍵）
         _, self.velocity = verlet_integrate_symplectic(

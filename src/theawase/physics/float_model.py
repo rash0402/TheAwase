@@ -19,8 +19,8 @@ class FloatModel:
 
     def __init__(
         self,
-        mass: float = 0.0023,  # kg (2.3g) エサ1.2gの1.92倍、安定性と感度の最適バランス（名人調整v2）
-        body_radius: float = 0.0050,   # m (5.0mm、正浮力4.7mN確保で水面近くに静止）
+        mass: float = 0.0027,  # kg (2.7g) エサ1.2gの2.25倍、アタリ抑制重視（名人調整v3）
+        body_radius: float = 0.0050,   # m (5.0mm、正浮力0.06mN、ほぼ中性浮力）
         body_length: float = 0.05,     # m (5cm)
         top_radius: float = 0.0004,    # m (0.4mm、ヘラブナ釣り用ウキの現実的な極細トップ)
         top_length: float = 0.10,      # m (10cm)
