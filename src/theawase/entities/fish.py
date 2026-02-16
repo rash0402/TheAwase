@@ -227,7 +227,7 @@ class FishAI:
             t: ATTACK開始からの経過時間 [s]
 
         Returns:
-            吸い込み強度（無次元、0-1.5程度）
+            吸い込み強度（無次元、0-7.5程度、Phase 4でアタリ明確化のため増強）
 
         時間区分:
             - 準備 (0-50ms): 口を開く、緩やかな立ち上がり
@@ -239,20 +239,20 @@ class FishAI:
         """
         if t < 0.05:
             # 準備段階: 口を開く（線形）
-            strength = 0.15 * (t / 0.05)  # 5.0→1.5に比例縮小
+            strength = 0.75 * (t / 0.05)  # Phase 4: 1.5→7.5に増強（アタリ明確化）
         elif t < 0.15:
             # 爆発段階: 爆発的吸引（ガウス型、σ=25ms）
             peak_time = 0.10  # 100ms = 50ms準備 + 50ms爆発
             width = 0.025     # 25ms（標準偏差）
-            strength = 1.5 * np.exp(-((t - peak_time) ** 2) / (2 * width ** 2))
+            strength = 7.5 * np.exp(-((t - peak_time) ** 2) / (2 * width ** 2))
         else:
             # 減衰段階: 離脱開始（指数減衰、τ=100ms）
             decay_start = 0.15
             decay_rate = 0.10  # 時定数100ms
-            strength = 1.5 * np.exp(-(t - decay_start) / decay_rate)
+            strength = 7.5 * np.exp(-(t - decay_start) / decay_rate)
 
-        # 上限キャップ: 数値発散防止（0.0-1.5の範囲に制限）
-        return np.clip(strength, 0.0, 1.5)
+        # 上限キャップ: 数値発散防止（0.0-7.5の範囲に制限）
+        return np.clip(strength, 0.0, 7.5)
     
     def get_suck_force(self, target_position: np.ndarray) -> np.ndarray:
         """吸い込み力を計算（双極子型力場）"""
