@@ -80,7 +80,7 @@ class MacroViewRenderer:
 
         # ウキ座標計算（先端位置: 水面線から物理位置分だけオフセット）
         uki_tip_y = water_line_y - float(float_pos[1]) * self.scale
-        uki_x = view_rect.centerx
+        uki_x = view_rect.centerx + float(float_pos[0]) * self.scale  # 横位置も反映
 
         total_width = max(top_width_px, body_width_px) + 4  # マージン
         total_height = top_len_px + body_len_px
