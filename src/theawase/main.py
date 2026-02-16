@@ -521,18 +521,19 @@ def main():
                 game_state['last_result'] = None
 
         # --- 描画 ---
-        # ATTACK中の魚を追跡（タイミングインジケータ用）
+        # タイミングインジケータ用: ATTACK中の魚を追跡（アワセ判定と同じロジック）
         active_fish = None
-        for fish in fishes:
-            if fish.state == FishState.ATTACK:
-                active_fish = fish
-                break  # 最初のATTACK魚のみ
+        attacking_fishes = [f for f in fishes if f.state == FishState.ATTACK]
+        if attacking_fishes:
+            # state_timerが最も進んでいる魚（＝最初にATTACKした魚）を選択
+            # これによりcheck_awase()と同じ魚が表示される
+            active_fish = max(attacking_fishes, key=lambda f: f.state_timer)
 
         # 左半分: マクロビュー
         macro_renderer.render(screen, macro_rect, float_model, bait, game_state)
 
         # タイミングインジケータ（ATTACK中のみ表示）
-        if active_fish and active_fish.state == FishState.ATTACK:
+        if active_fish:
             timing_indicator.render(
                 screen,
                 macro_rect,
