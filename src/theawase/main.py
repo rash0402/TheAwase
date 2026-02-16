@@ -532,15 +532,12 @@ def main():
         # 左半分: マクロビュー
         macro_renderer.render(screen, macro_rect, float_model, bait, game_state)
 
-        # タイミングインジケータ（ATTACK中のみ表示）
-        if active_fish:
-            timing_indicator.render(
-                screen,
-                macro_rect,
-                active_fish.state_timer * 1000  # 秒 → ミリ秒変換
-            )
-
+        # 右半分: デバッグビュー
         debug_renderer.render(screen, debug_rect, rod, line, float_model, bait, fishes, hand_pos, game_state)
+
+        # タイミングインジケータ（右ウィンドウ、常時表示）
+        state_timer_ms = active_fish.state_timer * 1000 if active_fish else 0.0
+        timing_indicator.render(screen, debug_rect, state_timer_ms)
         
         pygame.draw.line(screen, (100, 100, 100), (half_width, 0), (half_width, config.SCREEN_HEIGHT), 2)
         
