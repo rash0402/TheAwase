@@ -45,7 +45,7 @@ TOP_SEGMENT_HEIGHT_PX = 10     # px (トップの節模様セグメント高さ�
 
 # ゲームロジック定数
 FISH_COUNT = 4                 # 魚の数
-SUCK_TO_FLOAT_FACTOR = 0.015   # 魚の吸い込み力のウキへの伝達率（1.5%、感度を適度に抑える）
+SUCK_TO_FLOAT_FACTOR = 0.18    # 魚の吸い込み力のウキへの伝達率（18%、極めて明確なアタリ、80-120mm目標）
 SAWARI_DISTANCE_THRESHOLD = 0.15  # m (魚がこの距離以内でサワリを発生)
 SAWARI_TRANSMISSION_FACTOR = 0.05  # サワリ力のウキへの伝達率（5%、微細な振動として伝達）
 AWASE_THRESHOLD = 0.3          # m/s (アワセ判定の速度閾値、急速な上方向動作を検出)
@@ -86,3 +86,8 @@ FISH_STATE_NAMES_JP = {
     "ATTACK": "吸込み",
     "COOLDOWN": "離脱",
 }
+
+# デバッグ設定
+DEBUG_MODE = False              # デバッグ出力のON/OFF（デフォルトOFF）
+DEBUG_SAMPLING_INTERVAL = 0.1   # 秒（100ms、毎フレームではなく）
+DEBUG_TIME_LIMIT = None         # Noneの場合は時間制限なし（デバッグモード時）
