@@ -89,6 +89,7 @@ FISH_STATE_NAMES_JP = {
 
 # タイミングインジケータ設定
 # ATTACK開始からの経過時間に基づくタイミング閾値（ミリ秒）
+TIMING_GAUGE_DURATION_MS = 600.0  # ms (ATTACK状態の最大時間、ゲージの満タン)
 TIMING_TOO_EARLY_MAX = 100.0    # ms (0-100ms: TOO EARLY)
 TIMING_EARLY_MAX = 150.0        # ms (100-150ms: EARLY)
 TIMING_PERFECT_MAX = 450.0      # ms (150-450ms: PERFECT)

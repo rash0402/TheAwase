@@ -2,6 +2,7 @@
 
 import pytest
 from theawase.rendering.timing_indicator import TimingIndicatorRenderer
+from theawase import config
 
 
 class TestTimingIndicatorRenderer:
@@ -59,7 +60,7 @@ class TestTimingIndicatorRenderer:
         """150ms: 針が-45度（左から1/4）"""
         renderer = TimingIndicatorRenderer()
         angle = renderer._calculate_needle_angle(150.0)
-        expected = -90 + (150 / 600) * 180  # -45度
+        expected = -90 + (150 / config.TIMING_GAUGE_DURATION_MS) * 180  # -45度
         assert abs(angle - expected) < 0.1, f"Expected {expected}, got {angle}"
 
     def test_calculate_needle_angle_at_center(self):

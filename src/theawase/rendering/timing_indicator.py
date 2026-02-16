@@ -52,11 +52,11 @@ class TimingIndicatorRenderer:
         Returns:
             角度（度）: -90（左端）～ +90（右端）
         """
-        # 600msでクリップ
-        t_clamped = min(t_ms, 600.0)
+        # TIMING_GAUGE_DURATION_MS でクリップ
+        t_clamped = min(t_ms, config.TIMING_GAUGE_DURATION_MS)
 
-        # 線形マッピング: 0ms → -90度, 600ms → +90度
-        angle = -90.0 + (t_clamped / 600.0) * 180.0
+        # 線形マッピング: 0ms → -90度, TIMING_GAUGE_DURATION_MS → +90度
+        angle = -90.0 + (t_clamped / config.TIMING_GAUGE_DURATION_MS) * 180.0
 
         return angle
 
