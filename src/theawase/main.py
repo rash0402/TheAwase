@@ -13,6 +13,7 @@ from theawase.physics.utils import apply_water_entry_damping
 from theawase.entities.fish import FishAI, FishState, BiteType
 from theawase.input.trackpad import TrackpadInput
 from theawase.rendering.macro_view import MacroViewRenderer
+from theawase.rendering.timing_indicator import TimingIndicatorRenderer
 from theawase.rendering.debug_view import DebugViewRenderer
 
 class GameState(Enum):
@@ -302,6 +303,10 @@ def main():
 
     # レンダラー
     macro_renderer = MacroViewRenderer(_get_jp_font)
+
+    # タイミングインジケータレンダラー（新規）
+    timing_indicator = TimingIndicatorRenderer()
+
     debug_renderer = DebugViewRenderer(_get_jp_font)
 
     font_ui = _get_jp_font(24)
@@ -516,7 +521,24 @@ def main():
                 game_state['last_result'] = None
 
         # --- 描画 ---
+        # ATTACK中の魚を追跡（タイミングインジケータ用）
+        active_fish = None
+        for fish in fishes:
+            if fish.state == FishState.ATTACK:
+                active_fish = fish
+                break  # 最初のATTACK魚のみ
+
+        # 左半分: マクロビュー
         macro_renderer.render(screen, macro_rect, float_model, bait, game_state)
+
+        # タイミングインジケータ（ATTACK中のみ表示）
+        if active_fish and active_fish.state == FishState.ATTACK:
+            timing_indicator.render(
+                screen,
+                macro_rect,
+                active_fish.state_timer * 1000  # 秒 → ミリ秒変換
+            )
+
         debug_renderer.render(screen, debug_rect, rod, line, float_model, bait, fishes, hand_pos, game_state)
         
         pygame.draw.line(screen, (100, 100, 100), (half_width, 0), (half_width, config.SCREEN_HEIGHT), 2)
