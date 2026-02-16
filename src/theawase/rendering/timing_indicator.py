@@ -1,0 +1,55 @@
+"""アワセタイミングインジケータ レンダラー"""
+
+import pygame
+import numpy as np
+
+
+class TimingIndicatorRenderer:
+    """
+    アワセタイミング半円ゲージレンダラー
+
+    魚のATTACK中、画面下部にリアルタイムタイミングインジケータを表示。
+    """
+
+    def __init__(self):
+        self.radius = 50  # 半円の半径（px）
+        self.needle_length = 45  # 針の長さ（px）
+
+    def _get_color_for_timing(self, t_ms: float) -> tuple:
+        """
+        時間に応じた色を返す
+
+        Args:
+            t_ms: ATTACK開始からの経過時間（ミリ秒）
+
+        Returns:
+            RGB色タプル (R, G, B)
+        """
+        if t_ms < 100.0:
+            # TOO EARLY: 赤
+            return (255, 50, 50)
+        elif t_ms < 150.0:
+            # EARLY: 黄
+            return (255, 200, 0)
+        elif t_ms <= 450.0:
+            # PERFECT: 緑
+            return (50, 255, 50)
+        elif t_ms < 550.0:
+            # LATE: 黄
+            return (255, 200, 0)
+        else:
+            # TOO LATE: 赤
+            return (255, 50, 50)
+
+    def render(self, screen, view_rect, state_timer_ms: float, bite_type):
+        """
+        タイミングゲージを描画
+
+        Args:
+            screen: pygame surface
+            view_rect: マクロビューの矩形
+            state_timer_ms: ATTACK開始からの経過時間（ミリ秒）
+            bite_type: BiteType enum（KESHIKOMI/KUIAGE/NORMAL）
+        """
+        # TODO: 次のタスクで実装
+        pass
