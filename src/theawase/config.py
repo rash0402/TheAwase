@@ -87,6 +87,19 @@ FISH_STATE_NAMES_JP = {
     "COOLDOWN": "離脱",
 }
 
+# タイミングインジケータ設定
+# ATTACK開始からの経過時間に基づくタイミング閾値（ミリ秒）
+TIMING_TOO_EARLY_MAX = 100.0    # ms (0-100ms: TOO EARLY)
+TIMING_EARLY_MAX = 150.0        # ms (100-150ms: EARLY)
+TIMING_PERFECT_MAX = 450.0      # ms (150-450ms: PERFECT)
+TIMING_LATE_MAX = 550.0         # ms (450-550ms: LATE)
+# 550ms以降は TOO LATE
+
+# タイミングインジケータ色設定
+COLOR_TIMING_TOO_EARLY = (255, 50, 50)   # 赤（TOO EARLY / TOO LATE）
+COLOR_TIMING_EARLY = (255, 200, 0)       # 黄（EARLY / LATE）
+COLOR_TIMING_PERFECT = (50, 255, 50)     # 緑（PERFECT）
+
 # デバッグ設定
 DEBUG_MODE = False              # デバッグ出力のON/OFF（デフォルトOFF）
 DEBUG_SAMPLING_INTERVAL = 0.1   # 秒（100ms、毎フレームではなく）

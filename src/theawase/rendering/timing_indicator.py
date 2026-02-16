@@ -2,6 +2,7 @@
 
 import pygame
 import numpy as np
+from theawase import config
 
 
 class TimingIndicatorRenderer:
@@ -25,21 +26,21 @@ class TimingIndicatorRenderer:
         Returns:
             RGB色タプル (R, G, B)
         """
-        if t_ms < 100.0:
+        if t_ms < config.TIMING_TOO_EARLY_MAX:
             # TOO EARLY: 赤
-            return (255, 50, 50)
-        elif t_ms < 150.0:
+            return config.COLOR_TIMING_TOO_EARLY
+        elif t_ms < config.TIMING_EARLY_MAX:
             # EARLY: 黄
-            return (255, 200, 0)
-        elif t_ms <= 450.0:
+            return config.COLOR_TIMING_EARLY
+        elif t_ms <= config.TIMING_PERFECT_MAX:
             # PERFECT: 緑
-            return (50, 255, 50)
-        elif t_ms < 550.0:
+            return config.COLOR_TIMING_PERFECT
+        elif t_ms < config.TIMING_LATE_MAX:
             # LATE: 黄
-            return (255, 200, 0)
+            return config.COLOR_TIMING_EARLY
         else:
             # TOO LATE: 赤
-            return (255, 50, 50)
+            return config.COLOR_TIMING_TOO_EARLY
 
     def render(self, screen, view_rect, state_timer_ms: float, bite_type):
         """
