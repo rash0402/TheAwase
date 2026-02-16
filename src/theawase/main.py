@@ -425,6 +425,13 @@ def main():
 
         tippet_reaction_new = bait.update_velocity(dt, float_pos_new, fish_accel, fish_force_on_bait_new)
 
+        # ★新規追加: 新位置での吸い込み力を計算（シンプレクティック積分）
+        total_suck_force_new = np.array([0.0, 0.0])
+        for fish in fishes:
+            total_suck_force_new += fish.get_suck_force(bait.position)
+
+        float_suck_force_new = total_suck_force_new * config.SUCK_TO_FLOAT_FACTOR
+
         # Pass 2.3: ウキの速度更新（新外力を使用）
         # 新拘束力
         constraint_force_new = _calculate_line_constraint_force(
@@ -435,8 +442,12 @@ def main():
         # ハリス張力（鉛直成分）: エサの重さがウキを立たせる力
         tippet_tension_vertical = abs(tippet_reaction_new[1])
 
-        # ウキ速度更新（ハリス張力を通じて魚の力が伝達）
-        float_model.update_velocity(dt, tension_new - tippet_reaction_new + constraint_force_new, tippet_tension_vertical)
+        # ウキ速度更新（ハリス張力 + 圧力伝達で魚の力が伝達）
+        float_model.update_velocity(
+            dt,
+            tension_new - tippet_reaction_new + constraint_force_new + float_suck_force_new,  # ★追加
+            tippet_tension_vertical
+        )
 
         # 着水時の速度減衰（段階的減衰）
         float_model.velocity = apply_water_entry_damping(
