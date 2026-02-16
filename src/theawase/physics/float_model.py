@@ -168,10 +168,10 @@ class FloatModel:
                 self.velocity *= drag_damping
 
         # 線形抵抗（粘性抵抗）: 低速時の振動減衰に不可欠
-        # ボディの上端位置を計算（トップ先端から下方にtop_length分下がった位置）
-        body_top_y = self.position[1] - self.top_length
+        # ボディの下端位置を計算（ウキの最下端）
+        body_bottom_y = self.position[1] - self.top_length - self.body_length
 
-        if body_top_y < 0.0:
+        if body_bottom_y < 0.0:  # ボディの一部が水中にあれば（通常は常に真）
             # 異方性減衰: ウキは縦長なので、横方向の抵抗は大きく、縦方向は圧倒的に小さい
             # 横ブレを抑えつつ、上下方向は極めて敏感に（流体力学的に正確）
             damping_x = 200.0    # 横方向: 極限ブレーキ（断面積大、2.2→8.0→20.0→50.0→200.0に増強）
