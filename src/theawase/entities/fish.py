@@ -183,7 +183,7 @@ class FishAI:
     def _attack_behavior(self, dt: float, bait_position: np.ndarray):
         """吸い込み攻撃 + 事後動作"""
         # 吸い込み力を発生
-        attack_duration = 0.3  # 秒
+        attack_duration = 0.6  # 秒（達人推奨: アワセの猶予を広く）
         
         # 3段階モデルで吸い込み力を計算（50ms急峻立ち上がり）
         self.suck_strength = self._calculate_suck_strength_3stage(self.state_timer)
@@ -229,27 +229,31 @@ class FishAI:
         Returns:
             吸い込み強度（無次元、0-3.0程度、実釣の適正値）
 
-        時間区分:
+        時間区分（延長版）:
             - 準備 (0-50ms): 口を開く、緩やかな立ち上がり
-            - 爆発 (50-150ms): 鰓蓋を閉じて爆発的吸引、50msでピーク
-            - 減衰 (150-300ms): 離脱開始、指数減衰
+            - 爆発 (50-150ms): 鰓蓋を閉じて爆発的吸引、100msでピーク
+            - プラトー (150-350ms): ピーク維持、アワセ猶予
+            - 減衰 (350-600ms): 離脱開始、指数減衰
 
         数値解析結果: 5.0では強すぎてエサが平均91mm移動
         → 1.5に減衰（約1/3、「わずかに動く」を目指す）
         """
         if t < 0.05:
             # 準備段階: 口を開く（線形）
-            strength = 0.30 * (t / 0.05)  # Phase 4改良: 1.5→3.0（実釣の適正値）
+            strength = 0.30 * (t / 0.05)
         elif t < 0.15:
             # 爆発段階: 爆発的吸引（ガウス型、σ=25ms）
-            peak_time = 0.10  # 100ms = 50ms準備 + 50ms爆発
-            width = 0.025     # 25ms（標準偏差）
+            peak_time = 0.10  # 100ms
+            width = 0.025     # 25ms
             strength = 3.0 * np.exp(-((t - peak_time) ** 2) / (2 * width ** 2))
+        elif t < 0.35:
+            # プラトー段階: ピーク維持（アワセ猶予200ms）
+            strength = 2.8  # ピークの93%を維持
         else:
-            # 減衰段階: 離脱開始（指数減衰、τ=100ms）
-            decay_start = 0.15
-            decay_rate = 0.10  # 時定数100ms
-            strength = 3.0 * np.exp(-(t - decay_start) / decay_rate)
+            # 減衰段階: 離脱開始（指数減衰、τ=150ms）
+            decay_start = 0.35
+            decay_rate = 0.15  # 時定数150ms（ゆっくり減衰）
+            strength = 2.8 * np.exp(-(t - decay_start) / decay_rate)
 
         # 上限キャップ: 数値発散防止（0.0-3.0の範囲に制限）
         return np.clip(strength, 0.0, 3.0)

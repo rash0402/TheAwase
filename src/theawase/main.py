@@ -129,12 +129,12 @@ def _calculate_line_constraint_force(
 
 def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel, game_state: dict, bait: BaitModel) -> tuple[int, str] | None:
     """
-    アワセ判定 v3.0（実釣感覚版）
-    
-    達人の推奨に基づき、タイミングウィンドウを実釣の人間反応時間に調整:
-    - 視覚判断: 100ms
-    - 運動反応: 120ms
-    - 合計: 220ms前後が理想
+    アワセ判定 v3.1（吸い込み時間延長版）
+
+    達人の推奨: 吸い込み時間600ms、プラトー200msでアワセの猶予を広く
+    - KESHIKOMI: 150-500ms（中心150-400ms、250ms幅）
+    - KUIAGE: 150-600ms（中心150-550ms、400ms幅）
+    - NORMAL: 150-550ms（中心150-450ms、300ms幅）
     
     Priority A: タイミングウィンドウの細分化（実釣感覚）
     Priority B: 重複判定防止（クールダウン）
@@ -163,30 +163,30 @@ def check_awase(trackpad: TrackpadInput, fishes: list[FishAI], line: LineModel, 
         timing_ms = t_ms
         bite_type_str = bite.name
         
-        # Priority A: BiteType別のタイミングウィンドウ判定（実釣感覚版）
+        # Priority A: BiteType別のタイミングウィンドウ判定（拡張版）
         if bite == BiteType.KESHIKOMI:
-            # 消し込み: 最も難しい（瞬間勝負、100ms幅）
-            if 150 <= t_ms <= 250:
+            # 消し込み: 難しい（プラトー対応、250ms幅）
+            if 150 <= t_ms <= 400:
                 result = (3000, "EXCELLENT! 難しい消し込みを捉えた")
-            elif 100 <= t_ms < 150 or 250 < t_ms <= 300:
+            elif 100 <= t_ms < 150 or 400 < t_ms <= 500:
                 result = (1500, "GOOD! 消し込み（ギリギリ）")
             else:
                 result = (-200, "MISS: 消し込みに遅れた")
-        
+
         elif bite == BiteType.KUIAGE:
-            # 食い上げ: チャンスアタリ（荷重が抜けるため広い、250ms幅）
-            if 150 <= t_ms <= 400:
+            # 食い上げ: チャンスアタリ（最も広い、400ms幅）
+            if 150 <= t_ms <= 550:
                 result = (2500, "PERFECT! 食い上げを捉えた")
-            elif 100 <= t_ms < 150 or 400 < t_ms <= 500:
+            elif 100 <= t_ms < 150 or 550 < t_ms <= 600:
                 result = (1200, "GOOD! 食い上げ（やや早い/遅い）")
             else:
                 result = (-50, "BAD: タイミング外")
-        
+
         else:  # BiteType.NORMAL
-            # 通常アタリ: 標準ウィンドウ（150ms幅）
-            if 150 <= t_ms <= 300:
+            # 通常アタリ: 標準ウィンドウ（300ms幅）
+            if 150 <= t_ms <= 450:
                 result = (2500, "PERFECT! 理想のアワセ")
-            elif 100 <= t_ms < 150 or 300 < t_ms <= 350:
+            elif 100 <= t_ms < 150 or 450 < t_ms <= 550:
                 result = (1000, "GOOD! やや早い/遅い")
             else:
                 result = (-100, "BAD: タイミング外")
