@@ -69,7 +69,7 @@ MAX_FISH_ACCEL = 50.0       # m/s² (魚の加速度上限、安全ガード)
 # 初期位置設定（安定した平衡点から開始）
 FLOAT_INITIAL_Y = 0.100          # m (ウキ初期位置: 理論平衡点100mm、質量2.7g時の正確な浮力バランス）
 FLOAT_INITIAL_VELOCITY_Y = 0.0   # m/s (初期速度: ゼロ)
-WATER_ENTRY_DAMPING = 0.3        # 着水時の速度減衰係数（水面衝突で速度が70%減衰）
+WATER_ENTRY_DAMPING = 0.8        # 着水時の速度減衰係数（水面衝突で速度が80%減衰、初期振動強力抑制）
 WATER_ENTRY_ZONE = 0.10          # m (±10cm range for gradual damping)
 
 # 安全ガード（物理発散防止）
