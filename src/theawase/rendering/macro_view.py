@@ -178,12 +178,31 @@ class MacroViewRenderer:
             screen.blit(hint_surface, (bar_x, bar_y + bar_height + 5))
 
     def _draw_result(self, screen, view_rect, game_state):
-        """アワセ結果を表示"""
-        font = self.font_loader(48)
+        """アワセ結果を表示（適切なサイズと中央配置）"""
+        font = self.font_loader(32)  # 48→32に縮小
         result_text = game_state['last_result']
         # 成功系メッセージは緑、失敗系は赤
         is_success = any(keyword in result_text for keyword in ('EXCELLENT', 'PERFECT', 'GOOD'))
         result_color = (50, 200, 50) if is_success else (200, 50, 50)
+
+        # テキストが長い場合は2行に分割（コロンまたはスペースで）
+        max_width = view_rect.width - 40  # 左右20pxマージン
         text_surface = font.render(result_text, True, result_color)
-        screen.blit(text_surface, (int(view_rect.centerx - 50),
-                                    int(view_rect.top + 50)))
+
+        if text_surface.get_width() > max_width and ':' in result_text:
+            # コロンで分割して2行表示
+            parts = result_text.split(':', 1)
+            line1 = font.render(parts[0] + ':', True, result_color)
+            line2 = font.render(parts[1].strip(), True, result_color)
+
+            line1_rect = line1.get_rect(centerx=view_rect.centerx, top=view_rect.top + 40)
+            line2_rect = line2.get_rect(centerx=view_rect.centerx, top=view_rect.top + 80)
+
+            screen.blit(line1, line1_rect)
+            screen.blit(line2, line2_rect)
+        else:
+            # 1行で表示（中央揃え）
+            text_rect = text_surface.get_rect()
+            text_rect.centerx = view_rect.centerx
+            text_rect.top = view_rect.top + 50
+            screen.blit(text_surface, text_rect)
