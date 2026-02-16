@@ -278,6 +278,12 @@ class FishAI:
         return force_magnitude * force_direction
 
     def get_disturbance_force(self) -> np.ndarray:
-        """サワリによる擾乱力を返す"""
+        """
+        サワリによる擾乱力を返す
+
+        ATTACK中は大幅減衰（10%）: 魚が吸い込む瞬間は一直線の動き
+        """
+        if self.state == FishState.ATTACK:
+            return self.disturbance_force * 0.1  # へらぶな釣りの達人推奨
         return self.disturbance_force
 
