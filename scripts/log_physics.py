@@ -142,6 +142,10 @@ def run_simulation(duration_sec: float = 60.0, output_csv: str = "physics_log.cs
         # エサ位置更新
         bait.update_position(dt, fish_force_on_bait, float_model.position)
 
+        # ★新規追加: 魚の吸い込み力の一部を直接ウキに伝達（圧力伝達モデル）
+        total_suck_force = fish.get_suck_force(bait.position)
+        float_suck_force_old = total_suck_force * config.SUCK_TO_FLOAT_FACTOR
+
         # ウキ位置更新
         tippet_reaction_old = np.array([0.0, bait.mass * config.GRAVITY])
         tippet_tension_vertical_old = abs(tippet_reaction_old[1])
@@ -162,7 +166,11 @@ def run_simulation(duration_sec: float = 60.0, output_csv: str = "physics_log.cs
             if force_along_old > 0:
                 constraint_force_old = line_dir_old * force_along_old
 
-        float_model.update_position(dt, tension_old - tippet_reaction_old + constraint_force_old, tippet_tension_vertical_old)
+        float_model.update_position(
+            dt,
+            tension_old - tippet_reaction_old + constraint_force_old + float_suck_force_old,  # ★追加
+            tippet_tension_vertical_old
+        )
 
         # Pass 2: 速度更新
         tip_pos_new = rod.get_tip_position()
@@ -173,6 +181,10 @@ def run_simulation(duration_sec: float = 60.0, output_csv: str = "physics_log.cs
         fish_force_on_bait_new = fish.get_suck_force(bait.position) + fish.get_disturbance_force()
 
         tippet_reaction_new = bait.update_velocity(dt, float_pos_new, fish_accel, fish_force_on_bait_new)
+
+        # ★新規追加: 新位置での吸い込み力を計算（シンプレクティック積分）
+        total_suck_force_new = fish.get_suck_force(bait.position)
+        float_suck_force_new = total_suck_force_new * config.SUCK_TO_FLOAT_FACTOR
 
         line_diff_new = float_model.position - tip_pos_new
         line_dist_new = np.linalg.norm(line_diff_new)
@@ -187,7 +199,11 @@ def run_simulation(duration_sec: float = 60.0, output_csv: str = "physics_log.cs
                 constraint_force_new = line_dir_new * force_along_new
 
         tippet_tension_vertical = abs(tippet_reaction_new[1])
-        float_model.update_velocity(dt, tension_new - tippet_reaction_new + constraint_force_new, tippet_tension_vertical)
+        float_model.update_velocity(
+            dt,
+            tension_new - tippet_reaction_new + constraint_force_new + float_suck_force_new,  # ★追加
+            tippet_tension_vertical
+        )
 
         # 着水減衰
         float_model.velocity = apply_water_entry_damping(
