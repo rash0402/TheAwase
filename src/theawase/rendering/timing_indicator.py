@@ -185,9 +185,9 @@ class TimingIndicatorRenderer:
             view_rect: マクロビューの矩形
             state_timer_ms: ATTACK開始からの経過時間（ミリ秒）
         """
-        # ゲージの中心座標（画面下部中央）
-        center_x = view_rect.centerx
-        center_y = view_rect.bottom - 100
+        # ゲージの中心座標（画面右上）
+        center_x = view_rect.right - 100
+        center_y = view_rect.top + 100
 
         # 1. 背景を描画
         self._draw_gauge_background(screen, center_x, center_y)
