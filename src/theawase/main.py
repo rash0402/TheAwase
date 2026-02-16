@@ -291,6 +291,9 @@ def main():
         'fish_caught': 0,  # 釣れた魚の数
         'awase_history': [],  # Phase 3: タイミング履歴（最大50試行分）
     }
+
+    # デバッグ出力の時刻管理
+    debug_last_output_time = 0.0
     
     # 画面領域
     half_width = config.SCREEN_WIDTH // 2
@@ -479,11 +482,14 @@ def main():
         if game_state['state'] == GameState.PLAYING:
             game_state['time_left'] -= dt
 
-            # デバッグ出力（数値実験用、最初の10秒間）
-            if game_state['time_left'] > 50.0:
-                angle_deg = np.degrees(float_model.angle)
-                omega_deg = np.degrees(float_model.angular_velocity)
-                print(f"t={60-game_state['time_left']:.2f} angle={angle_deg:.1f}° omega={omega_deg:.2f}°/s y={float_model.position[1]:.3f}")
+            # デバッグ出力（100msサンプリング、ON/OFF切り替え可能）
+            if config.DEBUG_MODE:
+                current_time = 60 - game_state['time_left']
+                if (current_time - debug_last_output_time) >= config.DEBUG_SAMPLING_INTERVAL:
+                    angle_deg = np.degrees(float_model.angle)
+                    omega_deg = np.degrees(float_model.angular_velocity)
+                    print(f"[DEBUG] t={current_time:.3f}s: angle={angle_deg:.1f}° omega={omega_deg:.2f}°/s y={float_model.position[1]:.6f}")
+                    debug_last_output_time = current_time
 
             if game_state['time_left'] <= 0:
                 game_state['time_left'] = 0
