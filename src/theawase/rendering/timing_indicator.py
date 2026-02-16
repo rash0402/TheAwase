@@ -42,6 +42,19 @@ class TimingIndicatorRenderer:
             # TOO LATE: 赤
             return config.COLOR_TIMING_TOO_EARLY
 
+    def _timing_to_angle(self, t_ms: float) -> float:
+        """
+        タイミング（ミリ秒）を角度（度）に変換
+
+        Args:
+            t_ms: ATTACK開始からの経過時間（ミリ秒）
+
+        Returns:
+            角度（度）: -90（左端）～ +90（右端）
+        """
+        # 線形マッピング: 0ms → -90度, TIMING_GAUGE_DURATION_MS → +90度
+        return -90.0 + (t_ms / config.TIMING_GAUGE_DURATION_MS) * 180.0
+
     def _calculate_needle_angle(self, t_ms: float) -> float:
         """
         針の角度を計算（時間に基づく）
@@ -55,10 +68,7 @@ class TimingIndicatorRenderer:
         # TIMING_GAUGE_DURATION_MS でクリップ
         t_clamped = min(t_ms, config.TIMING_GAUGE_DURATION_MS)
 
-        # 線形マッピング: 0ms → -90度, TIMING_GAUGE_DURATION_MS → +90度
-        angle = -90.0 + (t_clamped / config.TIMING_GAUGE_DURATION_MS) * 180.0
-
-        return angle
+        return self._timing_to_angle(t_clamped)
 
     def _draw_gauge_background(self, screen, center_x: int, center_y: int):
         """
@@ -97,14 +107,21 @@ class TimingIndicatorRenderer:
             center_x: 中心X座標（px）
             center_y: 中心Y座標（px）
         """
-        # 各ゾーンの角度範囲（度 → ラジアン変換）
+        # 各ゾーンの角度範囲をconfig定数から計算
+        too_early_start = self._timing_to_angle(0)
+        too_early_end = self._timing_to_angle(config.TIMING_TOO_EARLY_MAX)
+        early_end = self._timing_to_angle(config.TIMING_EARLY_MAX)
+        perfect_end = self._timing_to_angle(config.TIMING_PERFECT_MAX)
+        late_end = self._timing_to_angle(config.TIMING_LATE_MAX)
+        too_late_end = self._timing_to_angle(config.TIMING_GAUGE_DURATION_MS)
+
         zones = [
             # (開始角度, 終了角度, 色, 時間範囲ms)
-            (-90, -60, (255, 50, 50), "0-100ms"),      # TOO EARLY
-            (-60, -45, (255, 200, 0), "100-150ms"),    # EARLY
-            (-45, 45, (50, 255, 50), "150-450ms"),     # PERFECT
-            (45, 60, (255, 200, 0), "450-550ms"),      # LATE
-            (60, 90, (255, 50, 50), "550-600ms"),      # TOO LATE
+            (too_early_start, too_early_end, config.COLOR_TIMING_TOO_EARLY, "0-100ms"),
+            (too_early_end, early_end, config.COLOR_TIMING_EARLY, "100-150ms"),
+            (early_end, perfect_end, config.COLOR_TIMING_PERFECT, "150-450ms"),
+            (perfect_end, late_end, config.COLOR_TIMING_EARLY, "450-550ms"),
+            (late_end, too_late_end, config.COLOR_TIMING_TOO_EARLY, "550-600ms"),
         ]
 
         rect = pygame.Rect(center_x - self.radius + 5, center_y - self.radius + 5,
@@ -159,7 +176,7 @@ class TimingIndicatorRenderer:
         # 中心点（小さな円）
         pygame.draw.circle(screen, (255, 255, 255), (center_x, center_y), 4)
 
-    def render(self, screen, view_rect, state_timer_ms: float, bite_type):
+    def render(self, screen, view_rect, state_timer_ms: float):
         """
         タイミングゲージを描画
 
@@ -167,7 +184,6 @@ class TimingIndicatorRenderer:
             screen: pygame surface
             view_rect: マクロビューの矩形
             state_timer_ms: ATTACK開始からの経過時間（ミリ秒）
-            bite_type: BiteType enum（KESHIKOMI/KUIAGE/NORMAL）
         """
         # ゲージの中心座標（画面下部中央）
         center_x = view_rect.centerx
