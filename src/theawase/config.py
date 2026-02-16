@@ -45,7 +45,7 @@ TOP_SEGMENT_HEIGHT_PX = 10     # px (トップの節模様セグメント高さ�
 
 # ゲームロジック定数
 FISH_COUNT = 4                 # 魚の数
-SUCK_TO_FLOAT_FACTOR = 0.18    # 魚の吸い込み力のウキへの伝達率（18%、極めて明確なアタリ、80-120mm目標）
+SUCK_TO_FLOAT_FACTOR = 0.45    # 魚の吸い込み力のウキへの伝達率（45%、魚力3.0Nに最適化）
 SAWARI_DISTANCE_THRESHOLD = 0.15  # m (魚がこの距離以内でサワリを発生)
 SAWARI_TRANSMISSION_FACTOR = 0.05  # サワリ力のウキへの伝達率（5%、微細な振動として伝達）
 AWASE_THRESHOLD = 0.3          # m/s (アワセ判定の速度閾値、急速な上方向動作を検出)

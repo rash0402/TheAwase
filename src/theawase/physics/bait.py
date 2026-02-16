@@ -38,8 +38,8 @@ class BaitModel:
         self.velocity = np.array([0.0, 0.0])
 
         # 水中抵抗（実釣感覚: エサはわずかに動く程度）
-        # 最適値: mass1.2g + drag25.0 で平均14.15mm（目標1-10mmに近い）
-        self.drag_coefficient = 25.0
+        # Phase 4改良: サワリ過敏を抑制、drag 25.0→50.0（2倍）
+        self.drag_coefficient = 50.0
 
         # 匂いパーティクル（位置リスト）
         self.particles: list[np.ndarray] = []
