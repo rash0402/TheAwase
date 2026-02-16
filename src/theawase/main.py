@@ -360,6 +360,13 @@ def main():
         # Fix 1: float_position引数を追加（バネ力をPhase 1でも適用）
         bait.update_position(dt, fish_force_on_bait, float_model.get_position())
 
+        # ★新規追加: 魚の吸い込み力の一部を直接ウキに伝達（圧力伝達モデル）
+        total_suck_force = np.array([0.0, 0.0])
+        for fish in fishes:
+            total_suck_force += fish.get_suck_force(bait.position)
+
+        float_suck_force_old = total_suck_force * config.SUCK_TO_FLOAT_FACTOR
+
         # Pass 1.3: ウキの位置更新（旧外力を使用）
         # 魚の更新（位置のみ更新、外力計算は後）
         bait_mass_ratio = bait.get_mass_ratio()
@@ -387,8 +394,12 @@ def main():
             gravity_on_float, float_model.calculate_buoyancy(), tippet_reaction_old[1],
         )
 
-        # ウキ位置更新（ハリス張力を通じて魚の力が伝達）
-        float_model.update_position(dt, tension_old - tippet_reaction_old + constraint_force_old, tippet_tension_vertical_old)
+        # ウキ位置更新（ハリス張力 + 圧力伝達で魚の力が伝達）
+        float_model.update_position(
+            dt,
+            tension_old - tippet_reaction_old + constraint_force_old + float_suck_force_old,  # ★追加
+            tippet_tension_vertical_old
+        )
 
         # Pass 2: 新位置で外力を再計算し、速度を平均加速度で更新
         # Pass 2.1: 竿の速度更新
