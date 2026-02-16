@@ -42,6 +42,24 @@ class TimingIndicatorRenderer:
             # TOO LATE: 赤
             return config.COLOR_TIMING_TOO_EARLY
 
+    def _calculate_needle_angle(self, t_ms: float) -> float:
+        """
+        針の角度を計算（時間に基づく）
+
+        Args:
+            t_ms: ATTACK開始からの経過時間（ミリ秒）
+
+        Returns:
+            角度（度）: -90（左端）～ +90（右端）
+        """
+        # 600msでクリップ
+        t_clamped = min(t_ms, 600.0)
+
+        # 線形マッピング: 0ms → -90度, 600ms → +90度
+        angle = -90.0 + (t_clamped / 600.0) * 180.0
+
+        return angle
+
     def render(self, screen, view_rect, state_timer_ms: float, bite_type):
         """
         タイミングゲージを描画

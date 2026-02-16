@@ -48,3 +48,35 @@ class TestTimingIndicatorRenderer:
         renderer = TimingIndicatorRenderer()
         color = renderer._get_color_for_timing(600.0)
         assert color == (255, 50, 50), f"Expected red, got {color}"
+
+    def test_calculate_needle_angle_at_start(self):
+        """0ms: 針が左端（-90度）"""
+        renderer = TimingIndicatorRenderer()
+        angle = renderer._calculate_needle_angle(0.0)
+        assert angle == -90.0, f"Expected -90, got {angle}"
+
+    def test_calculate_needle_angle_at_perfect_start(self):
+        """150ms: 針が-45度（左から1/4）"""
+        renderer = TimingIndicatorRenderer()
+        angle = renderer._calculate_needle_angle(150.0)
+        expected = -90 + (150 / 600) * 180  # -45度
+        assert abs(angle - expected) < 0.1, f"Expected {expected}, got {angle}"
+
+    def test_calculate_needle_angle_at_center(self):
+        """300ms: 針が中央（0度）"""
+        renderer = TimingIndicatorRenderer()
+        angle = renderer._calculate_needle_angle(300.0)
+        expected = 0.0
+        assert abs(angle - expected) < 0.1, f"Expected {expected}, got {angle}"
+
+    def test_calculate_needle_angle_at_end(self):
+        """600ms: 針が右端（+90度）"""
+        renderer = TimingIndicatorRenderer()
+        angle = renderer._calculate_needle_angle(600.0)
+        assert angle == 90.0, f"Expected 90, got {angle}"
+
+    def test_calculate_needle_angle_clamping(self):
+        """600ms超: 針が右端で停止（クリッピング）"""
+        renderer = TimingIndicatorRenderer()
+        angle = renderer._calculate_needle_angle(800.0)
+        assert angle == 90.0, f"Expected 90 (clamped), got {angle}"
