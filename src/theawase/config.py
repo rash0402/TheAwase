@@ -1,4 +1,5 @@
 """TheAwase 設定・定数"""
+from enum import Enum, auto
 
 # 画面設定
 SCREEN_WIDTH = 1280
@@ -107,18 +108,17 @@ DEBUG_SAMPLING_INTERVAL = 0.1   # 秒（100ms、毎フレームではなく）
 DEBUG_TIME_LIMIT = None         # Noneの場合は時間制限なし（デバッグモード時）
 
 # ── 難易度システム ──
-from enum import Enum, auto as _auto
 
 class Difficulty(Enum):
-    EASY = _auto()
-    NORMAL = _auto()
-    HARD = _auto()
+    EASY = auto()
+    NORMAL = auto()
+    HARD = auto()
 
 DIFFICULTY_PRESETS = {
     Difficulty.EASY: {
         'hunger_range': (0.6, 0.8),
         'caution_range': (0.1, 0.3),
-        'attack_rate': 3.0,  # 1.5x faster bites
+        'attack_rate': 3.0,  # NORMAL比 1.5倍（高頻度）
     },
     Difficulty.NORMAL: {
         'hunger_range': (0.3, 0.5),  # 現在のデフォルト（変化なし）
@@ -128,6 +128,6 @@ DIFFICULTY_PRESETS = {
     Difficulty.HARD: {
         'hunger_range': (0.1, 0.3),
         'caution_range': (0.5, 0.8),
-        'attack_rate': 1.0,  # 2x slower bites
+        'attack_rate': 1.0,  # NORMAL比 0.5倍（低頻度）
     },
 }
