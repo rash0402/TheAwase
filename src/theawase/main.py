@@ -321,7 +321,10 @@ def main():
     font_btn_sm = _get_jp_font(20)
 
     # 難易度ボタン（3個）
-    diff_btn_w, diff_btn_h = 280, 52
+    # ── UI レイアウト定数 ──
+    DIFF_BTN_W, DIFF_BTN_H = 280, 52
+    DIFF_BTN_SPACING = 12
+    START_BTN_W, START_BTN_H = 320, 68
     diff_colors = {
         config.Difficulty.EASY:   (50, 180, 80),
         config.Difficulty.NORMAL: (64, 128, 255),
@@ -334,11 +337,11 @@ def main():
     }
 
     def _make_diff_btn(diff, idx):
-        y = cy - 80 + idx * (diff_btn_h + 12)
+        y = cy - 80 + idx * (DIFF_BTN_H + DIFF_BTN_SPACING)
         def _on_diff_click(d=diff):
             game_state['difficulty'] = d
         return UIButton(
-            pygame.Rect(cx - diff_btn_w // 2, y, diff_btn_w, diff_btn_h),
+            pygame.Rect(cx - DIFF_BTN_W // 2, y, DIFF_BTN_W, DIFF_BTN_H),
             diff_labels[diff],
             _on_diff_click,
             color=diff_colors[diff],
@@ -352,7 +355,7 @@ def main():
     ]
 
     # スタートボタン（難易度ボタン下）
-    start_btn_y = cy - 80 + 3 * (diff_btn_h + 12) + 20
+    start_btn_y = cy - 80 + 3 * (DIFF_BTN_H + DIFF_BTN_SPACING) + 20
 
     def _on_start_click():
         game_state['state'] = GameState.PLAYING
@@ -362,7 +365,7 @@ def main():
         reset_physics()
 
     start_button = UIButton(
-        pygame.Rect(cx - 160, start_btn_y, 320, 68),
+        pygame.Rect(cx - START_BTN_W // 2, start_btn_y, START_BTN_W, START_BTN_H),
         "スタート",
         _on_start_click,
         color=(255, 165, 0),
@@ -370,10 +373,14 @@ def main():
     )
 
     # ヘルプボタン（スタートボタン右）
+    def _toggle_help():
+        """ヘルプ表示切替"""
+        game_state['show_help'] = not game_state['show_help']
+
     help_button = UIButton(
         pygame.Rect(cx + 170, start_btn_y + 18, 90, 32),
         "ヘルプ [?]",
-        lambda: game_state.__setitem__('show_help', not game_state['show_help']),
+        _toggle_help,
         color=(80, 80, 80),
         font=font_btn_sm,
     )
@@ -658,7 +665,7 @@ def main():
         fish_text = font_ui.render(f"FISH: {game_state['fish_caught']}", True, (255, 255, 255))
         screen.blit(score_text, (20, 20))
         screen.blit(fish_text, (20, 50))  # スコアの下に表示
-        screen.blit(time_text, (half_width - 140, 20))
+        screen.blit(time_text, (macro_rect.width - 140, 20))
 
         # ステート別オーバーレイ
         if game_state['state'] == GameState.TITLE:
