@@ -15,6 +15,7 @@ from theawase.input.trackpad import TrackpadInput
 from theawase.rendering.macro_view import MacroViewRenderer
 from theawase.rendering.timing_indicator import TimingIndicatorRenderer
 from theawase.rendering.debug_view import DebugViewRenderer
+from theawase.ui.button import UIButton
 
 class GameState(Enum):
     TITLE = auto()
@@ -49,7 +50,8 @@ def _find_jp_font_path():
 _JP_FONT_PATH = _find_jp_font_path()
 
 
-def create_fish_school(count: int = config.FISH_COUNT) -> list[FishAI]:
+def create_fish_school(count: int = config.FISH_COUNT,
+                       difficulty: config.Difficulty = config.Difficulty.NORMAL) -> list[FishAI]:
     """
     魚群を生成（達人推奨: 実釣に近い配置と活性）
     
@@ -57,6 +59,7 @@ def create_fish_school(count: int = config.FISH_COUNT) -> list[FishAI]:
     - 匹数: 2匹（60秒で0-1枚が現実的）
     - 活性: hunger=0.3-0.5（待つ楽しみ）
     """
+    preset = config.DIFFICULTY_PRESETS[difficulty]
     base_positions = [
         np.array([0.15, -0.40]),  # 水面下40cm（浅く）
         np.array([-0.12, -0.45]),  # 水面下45cm
@@ -71,8 +74,9 @@ def create_fish_school(count: int = config.FISH_COUNT) -> list[FishAI]:
         fishes.append(
             FishAI(
                 position=pos,
-                hunger=float(np.random.uniform(0.3, 0.5)),  # 活性低下
-                caution=float(np.random.uniform(0.2, 0.6)),
+                hunger=float(np.random.uniform(*preset['hunger_range'])),
+                caution=float(np.random.uniform(*preset['caution_range'])),
+                attack_rate=preset['attack_rate'],
             )
         )
     return fishes
@@ -250,6 +254,21 @@ def main():
     # エンティティ
     fishes = create_fish_school()
     
+    # ゲーム状態（reset_physicsより先に定義が必要）
+    game_state = {
+        'state': GameState.TITLE,
+        'score': 0,
+        'time_left': 60.0,
+        'last_result': None,
+        'result_timer': 0,
+        'awase_cooldown': 0.0,  # Priority B: 重複判定防止
+        'fish_caught': 0,  # 釣れた魚の数
+        'awase_history': [],  # Phase 3: タイミング履歴（最大50試行分）
+        'difficulty': config.Difficulty.NORMAL,   # 難易度（セッション開始時に「ふつう」にリセット）
+        'debug_visible': True,                     # デバッグビュー表示フラグ
+        'show_help': False,                        # ヘルプオーバーレイ表示フラグ
+    }
+
     # 初期位置設定
     def reset_physics():
         # モデル再作成ではなく状態リセット
@@ -273,33 +292,16 @@ def main():
         bait.velocity = np.array([0.0, 0.0])
         bait.mass = bait.initial_mass # エサ復活
         
-        # 魚リセット
-        fishes[:] = create_fish_school()
+        # 魚リセット（難易度を適用）
+        fishes[:] = create_fish_school(difficulty=game_state.get('difficulty', config.Difficulty.NORMAL))
 
     reset_physics()
     
     # 入力
     trackpad = TrackpadInput(config.SCREEN_WIDTH, config.SCREEN_HEIGHT)
-    
-    # ゲーム状態
-    game_state = {
-        'state': GameState.TITLE,
-        'score': 0,
-        'time_left': 60.0,
-        'last_result': None,
-        'result_timer': 0,
-        'awase_cooldown': 0.0,  # Priority B: 重複判定防止
-        'fish_caught': 0,  # 釣れた魚の数
-        'awase_history': [],  # Phase 3: タイミング履歴（最大50試行分）
-    }
 
     # デバッグ出力の時刻管理
     debug_last_output_time = 0.0
-    
-    # 画面領域
-    half_width = config.SCREEN_WIDTH // 2
-    macro_rect = pygame.Rect(0, 0, half_width, config.SCREEN_HEIGHT)
-    debug_rect = pygame.Rect(half_width, 0, half_width, config.SCREEN_HEIGHT)
 
     # レンダラー
     macro_renderer = MacroViewRenderer(_get_jp_font)
@@ -313,6 +315,88 @@ def main():
     font_large = _get_jp_font(64)
     font_medium = _get_jp_font(48)
 
+    # ── UIボタン初期化 ──
+    cx, cy = config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2
+    font_btn = _get_jp_font(26)
+    font_btn_sm = _get_jp_font(20)
+
+    # 難易度ボタン（3個）
+    diff_btn_w, diff_btn_h = 280, 52
+    diff_colors = {
+        config.Difficulty.EASY:   (50, 180, 80),
+        config.Difficulty.NORMAL: (64, 128, 255),
+        config.Difficulty.HARD:   (220, 60, 60),
+    }
+    diff_labels = {
+        config.Difficulty.EASY:   "かんたん  (バイト多め)",
+        config.Difficulty.NORMAL: "ふつう  (標準)",
+        config.Difficulty.HARD:   "むずかしい  (バイト少)",
+    }
+
+    def _make_diff_btn(diff, idx):
+        y = cy - 80 + idx * (diff_btn_h + 12)
+        def _on_diff_click(d=diff):
+            game_state['difficulty'] = d
+        return UIButton(
+            pygame.Rect(cx - diff_btn_w // 2, y, diff_btn_w, diff_btn_h),
+            diff_labels[diff],
+            _on_diff_click,
+            color=diff_colors[diff],
+            font=font_btn,
+        )
+
+    diff_buttons = [
+        _make_diff_btn(config.Difficulty.EASY, 0),
+        _make_diff_btn(config.Difficulty.NORMAL, 1),
+        _make_diff_btn(config.Difficulty.HARD, 2),
+    ]
+
+    # スタートボタン（難易度ボタン下）
+    start_btn_y = cy - 80 + 3 * (diff_btn_h + 12) + 20
+
+    def _on_start_click():
+        game_state['state'] = GameState.PLAYING
+        game_state['score'] = 0
+        game_state['fish_caught'] = 0
+        game_state['time_left'] = 60.0
+        reset_physics()
+
+    start_button = UIButton(
+        pygame.Rect(cx - 160, start_btn_y, 320, 68),
+        "スタート",
+        _on_start_click,
+        color=(255, 165, 0),
+        font=_get_jp_font(36),
+    )
+
+    # ヘルプボタン（スタートボタン右）
+    help_button = UIButton(
+        pygame.Rect(cx + 170, start_btn_y + 18, 90, 32),
+        "ヘルプ [?]",
+        lambda: game_state.__setitem__('show_help', not game_state['show_help']),
+        color=(80, 80, 80),
+        font=font_btn_sm,
+    )
+
+    # デバッグ切替ボタン（PLAYING中、右上隅）
+    def _toggle_debug():
+        game_state['debug_visible'] = not game_state['debug_visible']
+
+    debug_toggle_btn = UIButton(
+        pygame.Rect(config.SCREEN_WIDTH - 110, 8, 100, 30),
+        "デバッグ",
+        _toggle_debug,
+        color=(60, 60, 60),
+        font=font_btn_sm,
+    )
+
+    # 難易度マッピング（selected状態の更新に使用）
+    _diff_map = {
+        config.Difficulty.EASY: 0,
+        config.Difficulty.NORMAL: 1,
+        config.Difficulty.HARD: 2,
+    }
+
     running = True
     while running:
         dt = config.DT
@@ -323,23 +407,39 @@ def main():
                 running = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    running = False
-                
+                    if game_state['show_help']:
+                        game_state['show_help'] = False
+                    else:
+                        running = False
+
                 if game_state['state'] == GameState.TITLE:
                     if event.key == pygame.K_SPACE:
-                        game_state['state'] = GameState.PLAYING
-                        game_state['score'] = 0
-                        game_state['fish_caught'] = 0
-                        game_state['time_left'] = 60.0
-                        reset_physics()
-                
+                        _on_start_click()
+                    elif event.key == pygame.K_1:
+                        game_state['difficulty'] = config.Difficulty.EASY
+                    elif event.key == pygame.K_2:
+                        game_state['difficulty'] = config.Difficulty.NORMAL
+                    elif event.key == pygame.K_3:
+                        game_state['difficulty'] = config.Difficulty.HARD
+
                 elif game_state['state'] == GameState.PLAYING:
                     if event.key == pygame.K_r:
-                        reset_physics() # デバッグ用リセット
+                        reset_physics()
+                    elif event.key == pygame.K_TAB:
+                        _toggle_debug()
 
                 elif game_state['state'] == GameState.RESULT:
                     if event.key == pygame.K_r:
                         game_state['state'] = GameState.TITLE
+
+            # タイトル画面のボタンイベント
+            if game_state['state'] == GameState.TITLE and not game_state['show_help']:
+                for btn in diff_buttons:
+                    btn.handle_event(event)
+                start_button.handle_event(event)
+                help_button.handle_event(event)
+            elif game_state['state'] == GameState.PLAYING:
+                debug_toggle_btn.handle_event(event)
 
         # --- 更新 ---
         # 物理演算は常時実行（背景演出として）
@@ -529,18 +629,28 @@ def main():
             # これによりcheck_awase()と同じ魚が表示される
             active_fish = max(attacking_fishes, key=lambda f: f.state_timer)
 
-        # 左半分: マクロビュー
+        # タイミングインジケータ用 state_timer_ms の計算
+        state_timer_ms = active_fish.state_timer * 1000 if active_fish else 0.0
+
+        # view_rectを動的計算（デバッグビューのON/OFF）
+        if game_state['debug_visible']:
+            half_width = config.SCREEN_WIDTH // 2
+            macro_rect = pygame.Rect(0, 0, half_width, config.SCREEN_HEIGHT)
+            debug_rect = pygame.Rect(half_width, 0, half_width, config.SCREEN_HEIGHT)
+        else:
+            half_width = config.SCREEN_WIDTH // 2  # UI位置計算用（タイマー表示等）
+            macro_rect = pygame.Rect(0, 0, config.SCREEN_WIDTH, config.SCREEN_HEIGHT)
+            debug_rect = None
+
+        # 左半分（またはフルスクリーン）: マクロビュー
         macro_renderer.render(screen, macro_rect, float_model, bait, game_state)
 
-        # 右半分: デバッグビュー
-        debug_renderer.render(screen, debug_rect, rod, line, float_model, bait, fishes, hand_pos, game_state)
+        # 右半分: デバッグビュー（visible時のみ）
+        if debug_rect is not None:
+            debug_renderer.render(screen, debug_rect, rod, line, float_model, bait, fishes, hand_pos, game_state)
+            timing_indicator.render(screen, debug_rect, state_timer_ms)
+            pygame.draw.line(screen, (100, 100, 100), (half_width, 0), (half_width, config.SCREEN_HEIGHT), 2)
 
-        # タイミングインジケータ（右ウィンドウ、常時表示）
-        state_timer_ms = active_fish.state_timer * 1000 if active_fish else 0.0
-        timing_indicator.render(screen, debug_rect, state_timer_ms)
-        
-        pygame.draw.line(screen, (100, 100, 100), (half_width, 0), (half_width, config.SCREEN_HEIGHT), 2)
-        
         # UI Overlay
         # 共通UI (Score, Time, Fish Count)
         score_text = font_ui.render(f"SCORE: {game_state['score']}", True, (255, 255, 255))
@@ -551,21 +661,37 @@ def main():
         screen.blit(time_text, (half_width - 140, 20))
 
         # ステート別オーバーレイ
-        cx, cy = config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT // 2
-        
         if game_state['state'] == GameState.TITLE:
             overlay = pygame.Surface((config.SCREEN_WIDTH, config.SCREEN_HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 150))
             screen.blit(overlay, (0, 0))
-            
+
             title = font_large.render("TheAwase", True, (255, 200, 50))
             sub = font_ui.render("Digital Herabuna Physics", True, (200, 200, 200))
-            start = font_medium.render("SPACE キーで開始", True, (255, 255, 255))
-            
-            screen.blit(title, (cx - title.get_width()//2, cy - 100))
-            screen.blit(sub, (cx - sub.get_width()//2, cy - 30))
-            screen.blit(start, (cx - start.get_width()//2, cy + 100))
-            
+            screen.blit(title, (cx - title.get_width()//2, cy - 200))
+            screen.blit(sub, (cx - sub.get_width()//2, cy - 130))
+
+            # 難易度ボタン（selected状態を同期）
+            for btn in diff_buttons:
+                btn.selected = False
+            diff_buttons[_diff_map[game_state['difficulty']]].selected = True
+
+            for btn in diff_buttons:
+                btn.render(screen)
+            start_button.render(screen)
+            help_button.render(screen)
+
+            # キーボードショートカットヒント
+            hint_font = _get_jp_font(18)
+            hint = hint_font.render(
+                "[1] かんたん  [2] ふつう  [3] むずかしい  [SPACE] スタート",
+                True, (160, 160, 160)
+            )
+            screen.blit(hint, (cx - hint.get_width()//2, start_btn_y + 80))
+
+        elif game_state['state'] == GameState.PLAYING:
+            debug_toggle_btn.render(screen)
+
         elif game_state['state'] == GameState.RESULT:
             overlay = pygame.Surface((config.SCREEN_WIDTH, config.SCREEN_HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 180))
@@ -578,7 +704,39 @@ def main():
             screen.blit(res_title, (cx - res_title.get_width()//2, cy - 100))
             screen.blit(score_final, (cx - score_final.get_width()//2, cy))
             screen.blit(retry, (cx - retry.get_width()//2, cy + 120))
-        
+
+        # ヘルプオーバーレイ（全状態で最前面）
+        if game_state['show_help']:
+            help_overlay = pygame.Surface((config.SCREEN_WIDTH, config.SCREEN_HEIGHT), pygame.SRCALPHA)
+            help_overlay.fill((0, 0, 0, 200))
+            screen.blit(help_overlay, (0, 0))
+
+            help_font = _get_jp_font(22)
+            help_title_font = _get_jp_font(34)
+            help_lines = [
+                (help_title_font, "TheAwase - 操作説明", (255, 200, 50)),
+                (help_font, "", (200, 200, 200)),
+                (help_font, "【ゲームの目的】", (255, 255, 255)),
+                (help_font, "魚がウキを引いた瞬間（150〜450ms）に竿を上げる", (200, 200, 200)),
+                (help_font, "", (200, 200, 200)),
+                (help_font, "【操作方法】", (255, 255, 255)),
+                (help_font, "マウスを素早く上に動かす → アワセ（竿を上げる）", (200, 200, 200)),
+                (help_font, "SPACE → ゲーム開始", (200, 200, 200)),
+                (help_font, "TAB → デバッグビュー切替", (200, 200, 200)),
+                (help_font, "ESC / [?] → このヘルプを閉じる", (200, 200, 200)),
+                (help_font, "", (200, 200, 200)),
+                (help_font, "【タイミングゲージ（右側デバッグビュー）】", (255, 255, 255)),
+                (help_font, "赤: 早すぎ / 黄: やや早い / 緑: PERFECT / 黄: やや遅い / 赤: 遅すぎ", (200, 200, 200)),
+                (help_font, "", (200, 200, 200)),
+                (help_font, "[ ESC またはヘルプ[?]ボタンで閉じる ]", (100, 200, 255)),
+            ]
+            total_height = sum(fnt.size(txt)[1] + 4 for fnt, txt, _ in help_lines)
+            y = cy - total_height // 2
+            for fnt, text, color in help_lines:
+                surf = fnt.render(text, True, color)
+                screen.blit(surf, (cx - surf.get_width()//2, y))
+                y += fnt.size(text)[1] + 4
+
         pygame.display.flip()
         clock.tick(config.FPS)
     
@@ -587,4 +745,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
