@@ -35,6 +35,7 @@ class FishAI:
         position: np.ndarray = None,
         hunger: float = 0.5,
         caution: float = 0.5,
+        attack_rate: float = 2.0,  # 追加: 難易度による調整
     ):
         self.position = position if position is not None else np.array([0.0, -0.5])
         self.velocity = np.array([0.0, 0.0])
@@ -42,6 +43,7 @@ class FishAI:
         # 内部状態
         self.hunger = hunger    # 空腹度 (0-1)
         self.caution = caution  # 警戒心 (0-1)
+        self.attack_rate = attack_rate  # アタック頻度 (回/秒)
         
         # ステートマシン
         self.state = FishState.IDLE
@@ -165,8 +167,7 @@ class FishAI:
             
             # フレーム毎の判定なのでDtでスケーリング
             # (簡易ポアソン過程: P = rate * dt)
-            base_attack_rate = 2.0 # 回/秒（達人推奨: 活性を1/2.5に低下）
-            if np.random.random() < attack_probability * base_attack_rate * dt:
+            if np.random.random() < attack_probability * self.attack_rate * dt:
                 self.state = FishState.ATTACK
                 self.state_timer = 0.0
                 self.suck_direction = direction
