@@ -105,3 +105,29 @@ COLOR_TIMING_PERFECT = (50, 255, 50)     # 緑（PERFECT）
 DEBUG_MODE = False              # デバッグ出力のON/OFF（デフォルトOFF）
 DEBUG_SAMPLING_INTERVAL = 0.1   # 秒（100ms、毎フレームではなく）
 DEBUG_TIME_LIMIT = None         # Noneの場合は時間制限なし（デバッグモード時）
+
+# ── 難易度システム ──
+from enum import Enum, auto as _auto
+
+class Difficulty(Enum):
+    EASY = _auto()
+    NORMAL = _auto()
+    HARD = _auto()
+
+DIFFICULTY_PRESETS = {
+    Difficulty.EASY: {
+        'hunger_range': (0.6, 0.8),
+        'caution_range': (0.1, 0.3),
+        'attack_rate': 3.0,  # 1.5x faster bites
+    },
+    Difficulty.NORMAL: {
+        'hunger_range': (0.3, 0.5),  # 現在のデフォルト（変化なし）
+        'caution_range': (0.2, 0.6),
+        'attack_rate': 2.0,
+    },
+    Difficulty.HARD: {
+        'hunger_range': (0.1, 0.3),
+        'caution_range': (0.5, 0.8),
+        'attack_rate': 1.0,  # 2x slower bites
+    },
+}
