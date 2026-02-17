@@ -19,7 +19,7 @@ class UIButton:
         on_click: Callable,
         color: tuple = (64, 128, 255),
         text_color: tuple = (255, 255, 255),
-        font: pygame.font.Font = None,
+        font: pygame.font.Font | None = None,
     ):
         self.rect = rect
         self.label = label
