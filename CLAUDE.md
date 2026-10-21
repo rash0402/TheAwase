@@ -31,8 +31,6 @@ pytest
 
 依存: `pygame>=2.5.0`, `numpy>=1.24.0`。開発用: `pytest>=7.0.0`。Python `>=3.10`。
 
-Primary languages: Python (PyQt6 GUI, analysis scripts), Julia (simulation engine), Markdown (documentation). When running Julia background processes on macOS, use `nice` and handle I/O buffering explicitly to avoid priority/output issues.
-
 ## アーキテクチャ
 
 ### 物理カップリングチェーン
@@ -45,8 +43,8 @@ TrackpadInput → RodModel → LineModel → FloatModel ← FishAI ← BaitModel
 ```
 
 1. **TrackpadInput** (`input/trackpad.py`): 絶対座標マッピング。マウス/トラックパッド位置をワールド空間の手元位置に直結（30cm×30cm）。
-2. **RodModel** (`physics/rod.py`): バネ・マス・ダンパ系（2質点）。手元が竿先を `K_rod`, `C_rod` で駆動。現在はオイラー積分（Verlet積分器が `physics/integrator.py` に存在するが未接続）。
-3. **LineModel** (`physics/line.py`): 不感帯付きバネ。スラック長以下では張力ゼロ。**水切り状態** (`is_water_cut`) が張力伝達率をゲート（水切り前10%、後100%）。SPACEキーで水切り発動。
+2. **RodModel** (`physics/rod.py`): バネ・マス・ダンパ系（2質点）。手元が竿先を `K_rod`, `C_rod` で駆動。積分は `physics/integrator.py` の Verlet（`verlet_integrate` / `verlet_integrate_symplectic`）を rod・float・bait で共通使用。
+3. **LineModel** (`physics/line.py`): 不感帯付きバネ。スラック長以下では張力ゼロ、張力上限 5 N。張力は常時 100% 伝達（水切り機能は削除済み）。
 4. **FloatModel** (`physics/float_model.py`): 円柱近似の排水体積から浮力計算（`ρgV`）、二次抵抗。y=0が水面、y<0が水中。
 5. **BaitModel** (`physics/bait.py`): 可変質量系。ブラウン運動する匂いパーティクル（最大100個）を放出。質量は時間経過と速度で減衰。
 6. **FishAI** (`entities/fish.py`): 4状態FSM: `IDLE → APPROACH → ATTACK → COOLDOWN`。ATTACK中にガウス分布の吸い込み力場を生成。遷移はパーティクル密度と空腹度/警戒心に依存。
@@ -56,15 +54,11 @@ TrackpadInput → RodModel → LineModel → FloatModel ← FishAI ← BaitModel
 - **左半分（マクロビュー）**: ウキのフォトリアル拡大表示。プレイヤー向け。
 - **右半分（デバッグビュー）**: 物理状態の全体可視化 — 竿、糸、ウキ、エサ、魚、パーティクル、ステート情報。
 
-座標系: ワールド座標（メートル）→ スクリーン座標（ピクセル）は `world_to_screen()` で変換（スケール1000 px/m、Y軸反転）。
-
-### Key Concepts
-
-- This project uses a toroidal (wrap-around) world for ALL scenarios including Scramble. Always account for toroidal wrapping in coordinate calculations, distance computations, and visualization rendering.
+座標系: ワールド座標（メートル）→ スクリーン座標は各ビューの `_world_to_screen()` で変換（マクロビュー 2000 px/m、デバッグビュー 500 px/m、Y軸反転。`config.MACRO_VIEW_SCALE` / `DEBUG_VIEW_SCALE`）。
 
 ### アワセ判定
 
-`main.py` の `check_awase()`: 上方向速度の閾値超過 → 水切り済みチェック → 魚の状態判定（ATTACK=HIT、APPROACH=EARLY、それ以外=MISS）。
+`main.py` の `check_awase()`: 上方向速度の閾値超過（`config.AWASE_THRESHOLD`）→ 魚の状態判定（ATTACK=HIT、APPROACH=EARLY、それ以外=MISS）。
 
 ## GUI/Visualization Debugging
 
@@ -87,7 +81,7 @@ TrackpadInput → RodModel → LineModel → FloatModel ← FishAI ← BaitModel
 ## タスク管理
 
 - 計画は `tasks/todo.md` に記載。技術的教訓は `tasks/lessons.md` に蓄積。
-- 現在のロードマップ: Phase 1（物理コア）完了。Phase 2（グラフィック深化）進行中。次: Phase 3（プロシージャルオーディオ）、Phase 4（ゲームサイクル: スコア/タイマー/リトライ）。
+- ロードマップは `tasks/todo.md` を正とする（ゲームサイクルは実装済み。現行は数学的ダイナミクス Phase 1〜4、プロシージャル効果音は Phase 5 以降）。
 
 ## ワークフロールール
 
